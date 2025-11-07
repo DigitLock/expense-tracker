@@ -1,21 +1,16 @@
-# macOS
 .DS_Store
 .AppleDouble
 .LSOverride
 
-# Windows junk (на всякий случай)
 Thumbs.db
 Desktop.ini
 
-# Editors / IDE
 .vscode/
 .idea/
 *.iml
 
-# Logs
 *.log
 
-# Build artifacts (на будущее)
 dist/
 build/
 bin/
