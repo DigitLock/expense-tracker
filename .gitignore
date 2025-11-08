@@ -1,16 +1,72 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+/vendor/
+/backend/tmp/
+/backend/dist/
+
+# Frontend
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.vite/
+/frontend/.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.iml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+/postgres_data/
+*.sql.gz
+*.dump
+backup/
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# OS
+Thumbs.db
+Desktop.ini
 .DS_Store
 .AppleDouble
 .LSOverride
 
-Thumbs.db
-Desktop.ini
+# Temporary files
+tmp/
+temp/
+*.tmp
 
-.vscode/
-.idea/
-*.iml
-
-*.log
-
-dist/
+# Build artifacts
 build/
+dist/
+out/
 bin/
+
+# Test coverage
+coverage/
+*.cover
+*.coverprofile
+
+# Docker
+docker-compose.override.yml
