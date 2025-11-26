@@ -34,9 +34,9 @@ LIMIT $2 OFFSET $3;
 -- name: CreateTransaction :one
 INSERT INTO transactions (
     id, family_id, account_id, category_id, type,
-    amount, currency, amount_base, description, transaction_date
+    amount, currency, amount_base, description, transaction_date, created_by
 ) VALUES (
-             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
          )
 RETURNING *;
 

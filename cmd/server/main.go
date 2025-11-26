@@ -9,7 +9,7 @@ import (
 
 	"github.com/DigitLock/expense-tracker/internal/config"
 	"github.com/DigitLock/expense-tracker/internal/database"
-	"github.com/DigitLock/expense-tracker/internal/database/sqlc"
+	"github.com/DigitLock/expense-tracker/internal/repository"
 )
 
 func main() {
@@ -41,19 +41,17 @@ func main() {
 
 	log.Println("Connected to database successfully!")
 
-	// Health check
-	if err := db.Health(ctx); err != nil {
-		log.Fatalf("Database health check failed: %v", err)
-	}
-	log.Println("Database health check passed!")
+	// Initialize repositories
+	repos := repository.New(db.Pool)
+	log.Println("Repositories initialized!")
 
-	// === Test sqlc queries ===
-	log.Println("\nTesting sqlc queries with seed data...")
+	// === Test Repository Layer ===
+	log.Println("\n📊 Testing Repository layer with seed data...")
 
 	// Test: List all families
-	families, err := db.Queries.ListFamilies(ctx)
+	families, err := repos.Families.List(ctx)
 	if err != nil {
-		log.Printf("ListFamilies error: %v", err)
+		log.Printf("Families.List error: %v", err)
 	} else {
 		log.Printf("Found %d families", len(families))
 		for _, f := range families {
@@ -61,13 +59,14 @@ func main() {
 		}
 	}
 
-	// Test: List users (if we have a family)
+	// Test with first family
 	if len(families) > 0 {
 		familyID := families[0].ID
 
-		users, err := db.Queries.ListUsersByFamily(ctx, familyID)
+		// Test: List users
+		users, err := repos.Users.ListByFamily(ctx, familyID)
 		if err != nil {
-			log.Printf("ListUsersByFamily error: %v", err)
+			log.Printf("Users.ListByFamily error: %v", err)
 		} else {
 			log.Printf("Found %d users in family '%s'", len(users), families[0].Name)
 			for _, u := range users {
@@ -75,10 +74,18 @@ func main() {
 			}
 		}
 
-		// Test: List accounts
-		accounts, err := db.Queries.ListAccountsByFamily(ctx, familyID)
+		// Test: Authenticate user (with demo credentials)
+		user, err := repos.Users.Authenticate(ctx, "demo@example.com", "Demo123!")
 		if err != nil {
-			log.Printf("ListAccountsByFamily error: %v", err)
+			log.Printf("Users.Authenticate error: %v", err)
+		} else {
+			log.Printf("Authentication successful for: %s", user.Name)
+		}
+
+		// Test: List accounts
+		accounts, err := repos.Accounts.ListByFamily(ctx, familyID)
+		if err != nil {
+			log.Printf("Accounts.ListByFamily error: %v", err)
 		} else {
 			log.Printf("Found %d accounts", len(accounts))
 			for _, a := range accounts {
@@ -86,26 +93,29 @@ func main() {
 			}
 		}
 
-		// Test: List categories
-		categories, err := db.Queries.ListCategoriesByFamily(ctx, familyID)
+		// Test: Get total balance
+		totalBalance, accountCount, err := repos.Accounts.GetTotalBalanceByFamily(ctx, familyID)
 		if err != nil {
-			log.Printf("ListCategoriesByFamily error: %v", err)
+			log.Printf("Accounts.GetTotalBalanceByFamily error: %v", err)
+		} else {
+			log.Printf("Total balance across %d accounts: %s", accountCount, totalBalance.StringFixed(2))
+		}
+
+		// Test: List categories
+		categories, err := repos.Categories.ListByFamily(ctx, familyID)
+		if err != nil {
+			log.Printf("Categories.ListByFamily error: %v", err)
 		} else {
 			log.Printf("Found %d categories", len(categories))
 		}
 
-		// Test: List recent transactions
-		transactions, err := db.Queries.ListTransactionsPaginated(ctx, sqlc.ListTransactionsPaginatedParams{
-			FamilyID: familyID,
-			Limit:    5,
-			Offset:   0,
-		})
+		// Test: List transactions with pagination
+		transactions, err := repos.Transactions.ListPaginated(ctx, familyID, 5, 0)
 		if err != nil {
-			log.Printf("ListTransactionsPaginated error: %v", err)
+			log.Printf("Transactions.ListPaginated error: %v", err)
 		} else {
 			log.Printf("Found %d recent transactions (showing max 5)", len(transactions))
 			for _, t := range transactions {
-				// pgtype.Date requires .Time to access underlying time.Time
 				log.Printf("   - %s: %s %s (%s)",
 					t.TransactionDate.Time.Format("2006-01-02"),
 					t.Amount.StringFixed(2),
@@ -113,9 +123,17 @@ func main() {
 					t.Type)
 			}
 		}
+
+		// Test: Get exchange rate
+		rate, err := repos.ExchangeRates.GetLatestRate(ctx, "EUR", "RSD", families[0].CreatedAt)
+		if err != nil {
+			log.Printf("ExchangeRates.GetLatestRate: %v (may not have rates in seed data)", err)
+		} else {
+			log.Printf("EUR/RSD rate: %s", rate.Rate.StringFixed(4))
+		}
 	}
 
-	log.Println("\nAll sqlc queries working!")
+	log.Println("\nRepository layer working!")
 	log.Printf("Expense Tracker server ready (will listen on port %d)", cfg.Server.Port)
 
 	// Wait for shutdown

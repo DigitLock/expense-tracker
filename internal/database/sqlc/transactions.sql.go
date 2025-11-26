@@ -16,9 +16,9 @@ import (
 const createTransaction = `-- name: CreateTransaction :one
 INSERT INTO transactions (
     id, family_id, account_id, category_id, type,
-    amount, currency, amount_base, description, transaction_date
+    amount, currency, amount_base, description, transaction_date, created_by
 ) VALUES (
-             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
          )
 RETURNING id, family_id, account_id, category_id, type, amount, currency, amount_base, description, transaction_date, created_by, created_at, updated_at, is_active
 `
@@ -34,6 +34,7 @@ type CreateTransactionParams struct {
 	AmountBase      decimal.Decimal `json:"amount_base"`
 	Description     pgtype.Text     `json:"description"`
 	TransactionDate pgtype.Date     `json:"transaction_date"`
+	CreatedBy       uuid.UUID       `json:"created_by"`
 }
 
 func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error) {
@@ -48,6 +49,7 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 		arg.AmountBase,
 		arg.Description,
 		arg.TransactionDate,
+		arg.CreatedBy,
 	)
 	var i Transaction
 	err := row.Scan(
