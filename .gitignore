@@ -13,6 +13,7 @@
 *.test
 *.out
 go.work
+go.work.sum
 /vendor/
 /backend/tmp/
 /backend/dist/
