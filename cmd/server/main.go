@@ -39,23 +39,23 @@ func main() {
 	}
 	defer db.Close()
 
-	log.Println("✅ Connected to database successfully!")
+	log.Println("Connected to database successfully!")
 
 	// Health check
 	if err := db.Health(ctx); err != nil {
 		log.Fatalf("Database health check failed: %v", err)
 	}
-	log.Println("✅ Database health check passed!")
+	log.Println("Database health check passed!")
 
 	// === Test sqlc queries ===
-	log.Println("\n📊 Testing sqlc queries with seed data...")
+	log.Println("\nTesting sqlc queries with seed data...")
 
 	// Test: List all families
 	families, err := db.Queries.ListFamilies(ctx)
 	if err != nil {
-		log.Printf("❌ ListFamilies error: %v", err)
+		log.Printf("ListFamilies error: %v", err)
 	} else {
-		log.Printf("✅ Found %d families", len(families))
+		log.Printf("Found %d families", len(families))
 		for _, f := range families {
 			log.Printf("   - %s (base currency: %s)", f.Name, f.BaseCurrency)
 		}
@@ -67,9 +67,9 @@ func main() {
 
 		users, err := db.Queries.ListUsersByFamily(ctx, familyID)
 		if err != nil {
-			log.Printf("❌ ListUsersByFamily error: %v", err)
+			log.Printf("ListUsersByFamily error: %v", err)
 		} else {
-			log.Printf("✅ Found %d users in family '%s'", len(users), families[0].Name)
+			log.Printf("Found %d users in family '%s'", len(users), families[0].Name)
 			for _, u := range users {
 				log.Printf("   - %s (%s)", u.Name, u.Email)
 			}
@@ -78,9 +78,9 @@ func main() {
 		// Test: List accounts
 		accounts, err := db.Queries.ListAccountsByFamily(ctx, familyID)
 		if err != nil {
-			log.Printf("❌ ListAccountsByFamily error: %v", err)
+			log.Printf("ListAccountsByFamily error: %v", err)
 		} else {
-			log.Printf("✅ Found %d accounts", len(accounts))
+			log.Printf("Found %d accounts", len(accounts))
 			for _, a := range accounts {
 				log.Printf("   - %s: %s %s (type: %s)", a.Name, a.CurrentBalance.StringFixed(2), a.Currency, a.Type)
 			}
@@ -89,9 +89,9 @@ func main() {
 		// Test: List categories
 		categories, err := db.Queries.ListCategoriesByFamily(ctx, familyID)
 		if err != nil {
-			log.Printf("❌ ListCategoriesByFamily error: %v", err)
+			log.Printf("ListCategoriesByFamily error: %v", err)
 		} else {
-			log.Printf("✅ Found %d categories", len(categories))
+			log.Printf("Found %d categories", len(categories))
 		}
 
 		// Test: List recent transactions
@@ -101,9 +101,9 @@ func main() {
 			Offset:   0,
 		})
 		if err != nil {
-			log.Printf("❌ ListTransactionsPaginated error: %v", err)
+			log.Printf("ListTransactionsPaginated error: %v", err)
 		} else {
-			log.Printf("✅ Found %d recent transactions (showing max 5)", len(transactions))
+			log.Printf("Found %d recent transactions (showing max 5)", len(transactions))
 			for _, t := range transactions {
 				// pgtype.Date requires .Time to access underlying time.Time
 				log.Printf("   - %s: %s %s (%s)",
@@ -115,10 +115,10 @@ func main() {
 		}
 	}
 
-	log.Println("\n🎉 All sqlc queries working!")
-	log.Printf("🚀 Expense Tracker server ready (will listen on port %d)", cfg.Server.Port)
+	log.Println("\nAll sqlc queries working!")
+	log.Printf("Expense Tracker server ready (will listen on port %d)", cfg.Server.Port)
 
 	// Wait for shutdown
 	<-ctx.Done()
-	log.Println("👋 Server stopped gracefully")
+	log.Println("Server stopped gracefully")
 }
