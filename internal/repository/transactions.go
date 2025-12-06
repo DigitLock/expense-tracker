@@ -89,7 +89,7 @@ func (r *TransactionRepository) Create(ctx context.Context, input CreateTransact
 	defer tx.Rollback(ctx)
 
 	// Set user ID for audit trail
-	_, err = tx.Exec(ctx, "SET LOCAL app.current_user_id = $1", input.CreatedBy.String())
+	_, err = tx.Exec(ctx, fmt.Sprintf("SET LOCAL app.current_user_id = '%s'", input.CreatedBy.String()))
 	if err != nil {
 		return sqlc.Transaction{}, fmt.Errorf("failed to set audit user: %w", err)
 	}
@@ -173,7 +173,7 @@ func (r *TransactionRepository) Update(ctx context.Context, input UpdateTransact
 	defer tx.Rollback(ctx)
 
 	// Set user ID for audit trail
-	_, err = tx.Exec(ctx, "SET LOCAL app.current_user_id = $1", input.UpdatedBy.String())
+	_, err = tx.Exec(ctx, fmt.Sprintf("SET LOCAL app.current_user_id = '%s'", input.UpdatedBy.String()))
 	if err != nil {
 		return sqlc.Transaction{}, fmt.Errorf("failed to set audit user: %w", err)
 	}
@@ -224,7 +224,7 @@ func (r *TransactionRepository) Delete(ctx context.Context, id uuid.UUID, delete
 	defer tx.Rollback(ctx)
 
 	// Set user ID for audit trail
-	_, err = tx.Exec(ctx, "SET LOCAL app.current_user_id = $1", deletedBy.String())
+	_, err = tx.Exec(ctx, fmt.Sprintf("SET LOCAL app.current_user_id = '%s'", deletedBy.String()))
 	if err != nil {
 		return fmt.Errorf("failed to set audit user: %w", err)
 	}
@@ -254,4 +254,72 @@ func (r *TransactionRepository) GetSummaryByCategory(ctx context.Context, family
 		TransactionDate:   pgtype.Date{Time: startDate, Valid: true},
 		TransactionDate_2: pgtype.Date{Time: endDate, Valid: true},
 	})
+}
+
+// TransactionFilter contains filter options for listing transactions
+type TransactionFilter struct {
+	FamilyID  uuid.UUID
+	Type      *string // income, expense, or nil for all
+	AccountID *uuid.UUID
+	StartDate *time.Time
+	EndDate   *time.Time
+	Limit     int32
+	Offset    int32
+}
+
+// ListFiltered retrieves transactions with filters and pagination
+func (r *TransactionRepository) ListFiltered(ctx context.Context, filter TransactionFilter) ([]sqlc.Transaction, int64, error) {
+	// Build params - empty string/zero UUID means "no filter" in SQL
+	typeFilter := ""
+	if filter.Type != nil {
+		typeFilter = *filter.Type
+	}
+
+	var accountFilter uuid.UUID // zero UUID
+	if filter.AccountID != nil {
+		accountFilter = *filter.AccountID
+	}
+
+	var startDate pgtype.Date
+	if filter.StartDate != nil {
+		startDate = pgtype.Date{Time: *filter.StartDate, Valid: true}
+	}
+
+	var endDate pgtype.Date
+	if filter.EndDate != nil {
+		endDate = pgtype.Date{Time: *filter.EndDate, Valid: true}
+	}
+
+	// Get transactions
+	transactions, err := r.queries.ListTransactionsFiltered(ctx, sqlc.ListTransactionsFilteredParams{
+		FamilyID: filter.FamilyID,
+		Column2:  typeFilter,
+		Column3:  accountFilter,
+		Column4:  startDate,
+		Column5:  endDate,
+		Limit:    filter.Limit,
+		Offset:   filter.Offset,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get total count
+	total, err := r.queries.CountTransactionsFiltered(ctx, sqlc.CountTransactionsFilteredParams{
+		FamilyID: filter.FamilyID,
+		Column2:  typeFilter,
+		Column3:  accountFilter,
+		Column4:  startDate,
+		Column5:  endDate,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return transactions, total, nil
+}
+
+// GetByIDIncludingInactive retrieves a transaction by ID (even if inactive)
+func (r *TransactionRepository) GetByIDIncludingInactive(ctx context.Context, id uuid.UUID) (sqlc.Transaction, error) {
+	return r.queries.GetTransactionIncludingInactive(ctx, id)
 }

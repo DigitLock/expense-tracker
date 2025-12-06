@@ -85,6 +85,64 @@ func (q *Queries) GetCategory(ctx context.Context, id uuid.UUID) (Category, erro
 	return i, err
 }
 
+const getCategoryIncludingInactive = `-- name: GetCategoryIncludingInactive :one
+SELECT id, family_id, name, type, parent_id, description, created_at, updated_at, is_active FROM categories
+WHERE id = $1
+`
+
+func (q *Queries) GetCategoryIncludingInactive(ctx context.Context, id uuid.UUID) (Category, error) {
+	row := q.db.QueryRow(ctx, getCategoryIncludingInactive, id)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.FamilyID,
+		&i.Name,
+		&i.Type,
+		&i.ParentID,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsActive,
+	)
+	return i, err
+}
+
+const listAllCategoriesByFamily = `-- name: ListAllCategoriesByFamily :many
+SELECT id, family_id, name, type, parent_id, description, created_at, updated_at, is_active FROM categories
+WHERE family_id = $1
+ORDER BY type, name
+`
+
+func (q *Queries) ListAllCategoriesByFamily(ctx context.Context, familyID uuid.UUID) ([]Category, error) {
+	rows, err := q.db.Query(ctx, listAllCategoriesByFamily, familyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Category{}
+	for rows.Next() {
+		var i Category
+		if err := rows.Scan(
+			&i.ID,
+			&i.FamilyID,
+			&i.Name,
+			&i.Type,
+			&i.ParentID,
+			&i.Description,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCategoriesByFamily = `-- name: ListCategoriesByFamily :many
 SELECT id, family_id, name, type, parent_id, description, created_at, updated_at, is_active FROM categories
 WHERE family_id = $1 AND is_active = true
@@ -239,8 +297,9 @@ UPDATE categories
 SET
     name = $2,
     parent_id = $3,
+    is_active = $4,
     updated_at = NOW()
-WHERE id = $1 AND is_active = true
+WHERE id = $1
 RETURNING id, family_id, name, type, parent_id, description, created_at, updated_at, is_active
 `
 
@@ -248,10 +307,16 @@ type UpdateCategoryParams struct {
 	ID       uuid.UUID   `json:"id"`
 	Name     string      `json:"name"`
 	ParentID pgtype.UUID `json:"parent_id"`
+	IsActive bool        `json:"is_active"`
 }
 
 func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error) {
-	row := q.db.QueryRow(ctx, updateCategory, arg.ID, arg.Name, arg.ParentID)
+	row := q.db.QueryRow(ctx, updateCategory,
+		arg.ID,
+		arg.Name,
+		arg.ParentID,
+		arg.IsActive,
+	)
 	var i Category
 	err := row.Scan(
 		&i.ID,

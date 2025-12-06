@@ -19,14 +19,24 @@ func NewCategoryRepository(queries *sqlc.Queries) *CategoryRepository {
 	return &CategoryRepository{queries: queries}
 }
 
-// GetByID retrieves a category by ID
+// GetByID retrieves an active category by ID
 func (r *CategoryRepository) GetByID(ctx context.Context, id uuid.UUID) (sqlc.Category, error) {
 	return r.queries.GetCategory(ctx, id)
 }
 
-// ListByFamily retrieves all categories in a family
+// GetByIDIncludingInactive retrieves a category by ID (even if inactive)
+func (r *CategoryRepository) GetByIDIncludingInactive(ctx context.Context, id uuid.UUID) (sqlc.Category, error) {
+	return r.queries.GetCategoryIncludingInactive(ctx, id)
+}
+
+// ListByFamily retrieves all active categories in a family
 func (r *CategoryRepository) ListByFamily(ctx context.Context, familyID uuid.UUID) ([]sqlc.Category, error) {
 	return r.queries.ListCategoriesByFamily(ctx, familyID)
+}
+
+// ListAllByFamily retrieves all categories in a family (including inactive)
+func (r *CategoryRepository) ListAllByFamily(ctx context.Context, familyID uuid.UUID) ([]sqlc.Category, error) {
+	return r.queries.ListAllCategoriesByFamily(ctx, familyID)
 }
 
 // ListByType retrieves categories by type (income/expense)
@@ -71,17 +81,47 @@ func (r *CategoryRepository) Create(ctx context.Context, input CreateCategoryInp
 	})
 }
 
-// Update updates a category
-func (r *CategoryRepository) Update(ctx context.Context, id uuid.UUID, name string, parentID *uuid.UUID) (sqlc.Category, error) {
-	var pgParentID pgtype.UUID
-	if parentID != nil {
-		pgParentID = pgtype.UUID{Bytes: *parentID, Valid: true}
+// UpdateCategoryInput contains data for updating a category (partial update)
+type UpdateCategoryInput struct {
+	ID       uuid.UUID
+	Name     *string
+	ParentID *uuid.UUID // use special value to clear parent
+	IsActive *bool
+	// Special flag to indicate we want to clear parent_id (set to NULL)
+	ClearParent bool
+}
+
+// Update updates category details (partial update)
+func (r *CategoryRepository) Update(ctx context.Context, input UpdateCategoryInput) (sqlc.Category, error) {
+	// First get current category (including inactive to allow reactivation)
+	current, err := r.queries.GetCategoryIncludingInactive(ctx, input.ID)
+	if err != nil {
+		return sqlc.Category{}, err
+	}
+
+	// Apply updates (keep current values if not provided)
+	name := current.Name
+	if input.Name != nil {
+		name = *input.Name
+	}
+
+	parentID := current.ParentID
+	if input.ClearParent {
+		parentID = pgtype.UUID{Valid: false}
+	} else if input.ParentID != nil {
+		parentID = pgtype.UUID{Bytes: *input.ParentID, Valid: true}
+	}
+
+	isActive := current.IsActive
+	if input.IsActive != nil {
+		isActive = *input.IsActive
 	}
 
 	return r.queries.UpdateCategory(ctx, sqlc.UpdateCategoryParams{
-		ID:       id,
+		ID:       input.ID,
 		Name:     name,
-		ParentID: pgParentID,
+		ParentID: parentID,
+		IsActive: isActive,
 	})
 }
 

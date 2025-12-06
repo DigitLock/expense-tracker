@@ -17,7 +17,7 @@ VALUES
     ('550e8400-e29b-41d4-a716-446655440001',
      '550e8400-e29b-41d4-a716-446655440000',
      'demo@example.com',
-     '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5gyKw9bpfYe5y',
+     '$$2a$12$3JswJWa4H4aNb6ORGl2bM.SOCwlhga0kpaofi9NNtYR36I7RLEJqW',
      'Demo User');
 
 -- Demo User 2 (Family Member)
@@ -28,7 +28,7 @@ VALUES
     ('550e8400-e29b-41d4-a716-446655440002',
      '550e8400-e29b-41d4-a716-446655440000',
      'demo2@example.com',
-     '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5gyKw9bpfYe5y',
+     '$$2a$12$3JswJWa4H4aNb6ORGl2bM.SOCwlhga0kpaofi9NNtYR36I7RLEJqW',
      'Demo Family Member');
 
 

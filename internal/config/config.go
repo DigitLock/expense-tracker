@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
 
-// Config holds all application configuration
 type Config struct {
 	Database DatabaseConfig
 	Server   ServerConfig
+	JWT      JWTConfig
 }
 
-// DatabaseConfig holds database connection settings
 type DatabaseConfig struct {
 	Host     string
 	Port     int
@@ -24,12 +24,19 @@ type DatabaseConfig struct {
 	SSLMode  string
 }
 
-// ServerConfig holds HTTP server settings
 type ServerConfig struct {
-	Port int
+	Port            int
+	AllowedOrigins  []string
+	ReadTimeout     int // seconds
+	WriteTimeout    int // seconds
+	ShutdownTimeout int // seconds
 }
 
-// DSN returns PostgreSQL connection string
+type JWTConfig struct {
+	Secret          string
+	ExpirationHours int
+}
+
 func (d DatabaseConfig) DSN() string {
 	return fmt.Sprintf(
 		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
@@ -37,9 +44,8 @@ func (d DatabaseConfig) DSN() string {
 	)
 }
 
-// Load reads configuration from environment variables
 func Load() (*Config, error) {
-	// Load .env file if it exists (ignore error if not found)
+	// Load .env file (ignore error if not exists - for production)
 	_ = godotenv.Load()
 
 	dbPort, err := strconv.Atoi(getEnv("DB_PORT", "5432"))
@@ -52,24 +58,43 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid SERVER_PORT: %w", err)
 	}
 
+	jwtExpiration, err := strconv.Atoi(getEnv("JWT_EXPIRATION_HOURS", "24"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid JWT_EXPIRATION_HOURS: %w", err)
+	}
+
+	// Parse CORS origins
+	originsStr := getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")
+	origins := strings.Split(originsStr, ",")
+	for i := range origins {
+		origins[i] = strings.TrimSpace(origins[i])
+	}
+
 	return &Config{
 		Database: DatabaseConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     dbPort,
 			User:     getEnv("DB_USER", "postgres"),
 			Password: getEnv("DB_PASSWORD", ""),
-			DBName:   getEnv("DB_NAME", "expense_tracker_dev"),
+			DBName:   getEnv("DB_NAME", "expense_tracker"),
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
 		Server: ServerConfig{
-			Port: serverPort,
+			Port:            serverPort,
+			AllowedOrigins:  origins,
+			ReadTimeout:     15,
+			WriteTimeout:    15,
+			ShutdownTimeout: 30,
+		},
+		JWT: JWTConfig{
+			Secret:          getEnv("JWT_SECRET", ""),
+			ExpirationHours: jwtExpiration,
 		},
 	}, nil
 }
 
-// getEnv returns environment variable value or default
 func getEnv(key, defaultValue string) string {
-	if value, exists := os.LookupEnv(key); exists {
+	if value := os.Getenv(key); value != "" {
 		return value
 	}
 	return defaultValue

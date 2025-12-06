@@ -2,9 +2,18 @@
 SELECT * FROM categories
 WHERE id = $1 AND is_active = true;
 
+-- name: GetCategoryIncludingInactive :one
+SELECT * FROM categories
+WHERE id = $1;
+
 -- name: ListCategoriesByFamily :many
 SELECT * FROM categories
 WHERE family_id = $1 AND is_active = true
+ORDER BY type, name;
+
+-- name: ListAllCategoriesByFamily :many
+SELECT * FROM categories
+WHERE family_id = $1
 ORDER BY type, name;
 
 -- name: ListCategoriesByType :many
@@ -35,8 +44,9 @@ UPDATE categories
 SET
     name = $2,
     parent_id = $3,
+    is_active = $4,
     updated_at = NOW()
-WHERE id = $1 AND is_active = true
+WHERE id = $1
 RETURNING *;
 
 -- name: DeleteCategory :exec

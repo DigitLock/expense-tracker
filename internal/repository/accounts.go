@@ -19,14 +19,24 @@ func NewAccountRepository(queries *sqlc.Queries) *AccountRepository {
 	return &AccountRepository{queries: queries}
 }
 
-// GetByID retrieves an account by ID
+// GetByID retrieves an active account by ID
 func (r *AccountRepository) GetByID(ctx context.Context, id uuid.UUID) (sqlc.Account, error) {
 	return r.queries.GetAccount(ctx, id)
 }
 
-// ListByFamily retrieves all accounts in a family
+// GetByIDIncludingInactive retrieves an account by ID (even if inactive)
+func (r *AccountRepository) GetByIDIncludingInactive(ctx context.Context, id uuid.UUID) (sqlc.Account, error) {
+	return r.queries.GetAccountIncludingInactive(ctx, id)
+}
+
+// ListByFamily retrieves all active accounts in a family
 func (r *AccountRepository) ListByFamily(ctx context.Context, familyID uuid.UUID) ([]sqlc.Account, error) {
 	return r.queries.ListAccountsByFamily(ctx, familyID)
+}
+
+// ListAllByFamily retrieves all accounts in a family (including inactive)
+func (r *AccountRepository) ListAllByFamily(ctx context.Context, familyID uuid.UUID) ([]sqlc.Account, error) {
+	return r.queries.ListAllAccountsByFamily(ctx, familyID)
 }
 
 // ListByType retrieves accounts by type within a family
@@ -58,12 +68,37 @@ func (r *AccountRepository) Create(ctx context.Context, input CreateAccountInput
 	})
 }
 
-// Update updates account details (not balance - that's automatic)
-func (r *AccountRepository) Update(ctx context.Context, id uuid.UUID, name, accountType string) (sqlc.Account, error) {
+// UpdateAccountInput contains data for updating an account (partial update)
+type UpdateAccountInput struct {
+	ID       uuid.UUID
+	Name     *string
+	IsActive *bool
+}
+
+// Update updates account details (partial update)
+func (r *AccountRepository) Update(ctx context.Context, input UpdateAccountInput) (sqlc.Account, error) {
+	// First get current account (including inactive to allow reactivation)
+	current, err := r.queries.GetAccountIncludingInactive(ctx, input.ID)
+	if err != nil {
+		return sqlc.Account{}, err
+	}
+
+	// Apply updates (keep current values if not provided)
+	name := current.Name
+	if input.Name != nil {
+		name = *input.Name
+	}
+
+	isActive := current.IsActive
+	if input.IsActive != nil {
+		isActive = *input.IsActive
+	}
+
+	// Update with merged values
 	return r.queries.UpdateAccount(ctx, sqlc.UpdateAccountParams{
-		ID:   id,
-		Name: name,
-		Type: accountType,
+		ID:       input.ID,
+		Name:     name,
+		IsActive: isActive,
 	})
 }
 

@@ -13,6 +13,51 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+const countTransactionsByFamily = `-- name: CountTransactionsByFamily :one
+SELECT COUNT(*) as total
+FROM transactions
+WHERE family_id = $1 AND is_active = true
+`
+
+func (q *Queries) CountTransactionsByFamily(ctx context.Context, familyID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countTransactionsByFamily, familyID)
+	var total int64
+	err := row.Scan(&total)
+	return total, err
+}
+
+const countTransactionsFiltered = `-- name: CountTransactionsFiltered :one
+SELECT COUNT(*) as total
+FROM transactions
+WHERE family_id = $1
+  AND is_active = true
+  AND ($2 = '' OR type = $2)
+  AND ($3 = '00000000-0000-0000-0000-000000000000'::uuid OR account_id = $3)
+  AND ($4::date IS NULL OR transaction_date >= $4)
+  AND ($5::date IS NULL OR transaction_date <= $5)
+`
+
+type CountTransactionsFilteredParams struct {
+	FamilyID uuid.UUID   `json:"family_id"`
+	Column2  interface{} `json:"column_2"`
+	Column3  interface{} `json:"column_3"`
+	Column4  pgtype.Date `json:"column_4"`
+	Column5  pgtype.Date `json:"column_5"`
+}
+
+func (q *Queries) CountTransactionsFiltered(ctx context.Context, arg CountTransactionsFilteredParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countTransactionsFiltered,
+		arg.FamilyID,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Column5,
+	)
+	var total int64
+	err := row.Scan(&total)
+	return total, err
+}
+
 const createTransaction = `-- name: CreateTransaction :one
 INSERT INTO transactions (
     id, family_id, account_id, category_id, type,
@@ -89,6 +134,33 @@ WHERE id = $1 AND is_active = true
 
 func (q *Queries) GetTransaction(ctx context.Context, id uuid.UUID) (Transaction, error) {
 	row := q.db.QueryRow(ctx, getTransaction, id)
+	var i Transaction
+	err := row.Scan(
+		&i.ID,
+		&i.FamilyID,
+		&i.AccountID,
+		&i.CategoryID,
+		&i.Type,
+		&i.Amount,
+		&i.Currency,
+		&i.AmountBase,
+		&i.Description,
+		&i.TransactionDate,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsActive,
+	)
+	return i, err
+}
+
+const getTransactionIncludingInactive = `-- name: GetTransactionIncludingInactive :one
+SELECT id, family_id, account_id, category_id, type, amount, currency, amount_base, description, transaction_date, created_by, created_at, updated_at, is_active FROM transactions
+WHERE id = $1
+`
+
+func (q *Queries) GetTransactionIncludingInactive(ctx context.Context, id uuid.UUID) (Transaction, error) {
+	row := q.db.QueryRow(ctx, getTransactionIncludingInactive, id)
 	var i Transaction
 	err := row.Scan(
 		&i.ID,
@@ -347,6 +419,71 @@ ORDER BY transaction_date DESC, created_at DESC
 
 func (q *Queries) ListTransactionsByFamily(ctx context.Context, familyID uuid.UUID) ([]Transaction, error) {
 	rows, err := q.db.Query(ctx, listTransactionsByFamily, familyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Transaction{}
+	for rows.Next() {
+		var i Transaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.FamilyID,
+			&i.AccountID,
+			&i.CategoryID,
+			&i.Type,
+			&i.Amount,
+			&i.Currency,
+			&i.AmountBase,
+			&i.Description,
+			&i.TransactionDate,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTransactionsFiltered = `-- name: ListTransactionsFiltered :many
+SELECT id, family_id, account_id, category_id, type, amount, currency, amount_base, description, transaction_date, created_by, created_at, updated_at, is_active FROM transactions
+WHERE family_id = $1
+  AND is_active = true
+  AND ($2 = '' OR type = $2)
+  AND ($3 = '00000000-0000-0000-0000-000000000000'::uuid OR account_id = $3)
+  AND ($4::date IS NULL OR transaction_date >= $4)
+  AND ($5::date IS NULL OR transaction_date <= $5)
+ORDER BY transaction_date DESC, created_at DESC
+LIMIT $6 OFFSET $7
+`
+
+type ListTransactionsFilteredParams struct {
+	FamilyID uuid.UUID   `json:"family_id"`
+	Column2  interface{} `json:"column_2"`
+	Column3  interface{} `json:"column_3"`
+	Column4  pgtype.Date `json:"column_4"`
+	Column5  pgtype.Date `json:"column_5"`
+	Limit    int32       `json:"limit"`
+	Offset   int32       `json:"offset"`
+}
+
+func (q *Queries) ListTransactionsFiltered(ctx context.Context, arg ListTransactionsFilteredParams) ([]Transaction, error) {
+	rows, err := q.db.Query(ctx, listTransactionsFiltered,
+		arg.FamilyID,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Column5,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}

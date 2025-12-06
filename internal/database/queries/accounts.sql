@@ -2,9 +2,18 @@
 SELECT * FROM accounts
 WHERE id = $1 AND is_active = true;
 
+-- name: GetAccountIncludingInactive :one
+SELECT * FROM accounts
+WHERE id = $1;
+
 -- name: ListAccountsByFamily :many
 SELECT * FROM accounts
 WHERE family_id = $1 AND is_active = true
+ORDER BY name;
+
+-- name: ListAllAccountsByFamily :many
+SELECT * FROM accounts
+WHERE family_id = $1
 ORDER BY name;
 
 -- name: ListAccountsByType :many
@@ -24,9 +33,9 @@ RETURNING *;
 UPDATE accounts
 SET
     name = $2,
-    type = $3,
+    is_active = $3,
     updated_at = NOW()
-WHERE id = $1 AND is_active = true
+WHERE id = $1
 RETURNING *;
 
 -- name: DeleteAccount :exec

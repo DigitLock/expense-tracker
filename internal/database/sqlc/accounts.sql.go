@@ -108,6 +108,30 @@ func (q *Queries) GetAccountBalance(ctx context.Context, id uuid.UUID) (GetAccou
 	return i, err
 }
 
+const getAccountIncludingInactive = `-- name: GetAccountIncludingInactive :one
+SELECT id, family_id, name, type, currency, initial_balance, current_balance, description, created_at, updated_at, is_active FROM accounts
+WHERE id = $1
+`
+
+func (q *Queries) GetAccountIncludingInactive(ctx context.Context, id uuid.UUID) (Account, error) {
+	row := q.db.QueryRow(ctx, getAccountIncludingInactive, id)
+	var i Account
+	err := row.Scan(
+		&i.ID,
+		&i.FamilyID,
+		&i.Name,
+		&i.Type,
+		&i.Currency,
+		&i.InitialBalance,
+		&i.CurrentBalance,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsActive,
+	)
+	return i, err
+}
+
 const getTotalBalanceByFamily = `-- name: GetTotalBalanceByFamily :one
 SELECT
     COALESCE(SUM(current_balance), 0)::numeric as total_balance,
@@ -209,24 +233,62 @@ func (q *Queries) ListAccountsByType(ctx context.Context, arg ListAccountsByType
 	return items, nil
 }
 
+const listAllAccountsByFamily = `-- name: ListAllAccountsByFamily :many
+SELECT id, family_id, name, type, currency, initial_balance, current_balance, description, created_at, updated_at, is_active FROM accounts
+WHERE family_id = $1
+ORDER BY name
+`
+
+func (q *Queries) ListAllAccountsByFamily(ctx context.Context, familyID uuid.UUID) ([]Account, error) {
+	rows, err := q.db.Query(ctx, listAllAccountsByFamily, familyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Account{}
+	for rows.Next() {
+		var i Account
+		if err := rows.Scan(
+			&i.ID,
+			&i.FamilyID,
+			&i.Name,
+			&i.Type,
+			&i.Currency,
+			&i.InitialBalance,
+			&i.CurrentBalance,
+			&i.Description,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateAccount = `-- name: UpdateAccount :one
 UPDATE accounts
 SET
     name = $2,
-    type = $3,
+    is_active = $3,
     updated_at = NOW()
-WHERE id = $1 AND is_active = true
+WHERE id = $1
 RETURNING id, family_id, name, type, currency, initial_balance, current_balance, description, created_at, updated_at, is_active
 `
 
 type UpdateAccountParams struct {
-	ID   uuid.UUID `json:"id"`
-	Name string    `json:"name"`
-	Type string    `json:"type"`
+	ID       uuid.UUID `json:"id"`
+	Name     string    `json:"name"`
+	IsActive bool      `json:"is_active"`
 }
 
 func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error) {
-	row := q.db.QueryRow(ctx, updateAccount, arg.ID, arg.Name, arg.Type)
+	row := q.db.QueryRow(ctx, updateAccount, arg.ID, arg.Name, arg.IsActive)
 	var i Account
 	err := row.Scan(
 		&i.ID,

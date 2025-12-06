@@ -83,3 +83,33 @@ WHERE family_id = $1
   AND is_active = true
 GROUP BY category_id
 ORDER BY total DESC;
+
+-- name: CountTransactionsByFamily :one
+SELECT COUNT(*) as total
+FROM transactions
+WHERE family_id = $1 AND is_active = true;
+
+-- name: GetTransactionIncludingInactive :one
+SELECT * FROM transactions
+WHERE id = $1;
+
+-- name: ListTransactionsFiltered :many
+SELECT * FROM transactions
+WHERE family_id = $1
+  AND is_active = true
+  AND ($2 = '' OR type = $2)
+  AND ($3 = '00000000-0000-0000-0000-000000000000'::uuid OR account_id = $3)
+  AND ($4::date IS NULL OR transaction_date >= $4)
+  AND ($5::date IS NULL OR transaction_date <= $5)
+ORDER BY transaction_date DESC, created_at DESC
+LIMIT $6 OFFSET $7;
+
+-- name: CountTransactionsFiltered :one
+SELECT COUNT(*) as total
+FROM transactions
+WHERE family_id = $1
+  AND is_active = true
+  AND ($2 = '' OR type = $2)
+  AND ($3 = '00000000-0000-0000-0000-000000000000'::uuid OR account_id = $3)
+  AND ($4::date IS NULL OR transaction_date >= $4)
+  AND ($5::date IS NULL OR transaction_date <= $5);
