@@ -8,49 +8,85 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/DigitLock/expense-tracker/Documentation/swagger" // Swagger docs
 	"github.com/DigitLock/expense-tracker/internal/api"
 	"github.com/DigitLock/expense-tracker/internal/config"
 	"github.com/DigitLock/expense-tracker/internal/database"
 	"github.com/DigitLock/expense-tracker/internal/repository"
 )
 
+// @title           Expense Tracker API
+// @version         1.0
+// @description     Personal and family finance management system with multi-currency support and automatic balance calculation
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   Igor Kudinov
+// @contact.email  igor@digitlock.systems
+
+// @license.name  MIT
+// @license.url   https://opensource.org/licenses/MIT
+
+// @host      localhost:8080
+// @BasePath  /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
+
+// @tag.name Authentication
+// @tag.description User authentication and authorization
+
+// @tag.name Accounts
+// @tag.description Financial accounts management
+
+// @tag.name Categories
+// @tag.description Transaction categories management
+
+// @tag.name Transactions
+// @tag.description Income and expense transactions
+
+// @tag.name Reports
+// @tag.description Financial reports and analytics
+
+// @tag.name Currencies
+// @tag.description Currency exchange rates and conversion
+
 func main() {
 	ctx := context.Background()
 
-	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("❌ Failed to load config: %v", err)
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
 	// Validate required config
 	if cfg.JWT.Secret == "" {
-		log.Println("⚠️  WARNING: JWT_SECRET not set, using insecure default for development")
+		log.Println("WARNING: JWT_SECRET not set, using insecure default for development")
 		cfg.JWT.Secret = "dev-secret-change-in-production"
 	}
 
-	// Connect to database (используем существующий database.New)
 	db, err := database.New(ctx, cfg.Database)
 	if err != nil {
-		log.Fatalf("❌ Failed to connect to database: %v", err)
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer db.Close()
-	log.Println("✅ Connected to database")
+	log.Println("Connected to database")
 
-	// Initialize repositories
 	repos := repository.New(db.Pool)
-	log.Println("✅ Repositories initialized")
+	log.Println("Repositories initialized")
 
-	// Setup router
 	router := api.NewRouter(cfg, db.Pool, repos)
 
-	// Create and start server
 	server := api.NewServer(&cfg.Server, router)
 
-	// Graceful shutdown
+	// Log Swagger UI URL
+	log.Printf("Swagger UI: http://localhost:%d/swagger/index.html\n", cfg.Server.Port)
+	log.Printf("Server starting on port %d\n", cfg.Server.Port)
+
 	go func() {
 		if err := server.Start(); err != nil && err.Error() != "http: Server closed" {
-			log.Fatalf("❌ Server error: %v", err)
+			log.Fatalf("Server error: %v", err)
 		}
 	}()
 
@@ -59,13 +95,14 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	// Shutdown with timeout
+	log.Println("Shutting down server...")
+
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.Server.ShutdownTimeout)*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("❌ Server forced to shutdown: %v", err)
+		log.Fatalf("Server forced to shutdown: %v", err)
 	}
 
-	log.Println("✅ Server stopped gracefully")
+	log.Println("Server stopped gracefully")
 }

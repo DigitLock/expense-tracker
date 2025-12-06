@@ -5,6 +5,7 @@ import (
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
+	httpSwagger "github.com/swaggo/http-swagger"
 
 	"github.com/DigitLock/expense-tracker/internal/api/handlers"
 	"github.com/DigitLock/expense-tracker/internal/api/middleware"
@@ -16,10 +17,10 @@ import (
 func NewRouter(cfg *config.Config, db *pgxpool.Pool, repos *repository.Repositories) *chi.Mux {
 	r := chi.NewRouter()
 
-	// --- JWT Service ---
+	// JWT Service
 	jwtService := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.ExpirationHours)
 
-	// --- Global Middleware ---
+	// Global Middleware
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logging)
 	r.Use(chiMiddleware.RequestID)
@@ -35,7 +36,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, repos *repository.Repositor
 		MaxAge:           300,
 	}))
 
-	// --- Handlers ---
+	// Handlers
 	healthHandler := handlers.NewHealthHandler(db)
 	authHandler := handlers.NewAuthHandler(repos.Users, jwtService)
 	accountHandler := handlers.NewAccountHandler(repos.Accounts)
@@ -53,11 +54,16 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, repos *repository.Repositor
 	)
 	currencyHandler := handlers.NewCurrencyHandler(repos.ExchangeRates)
 
-	// --- Public Routes (no auth required) ---
+	// Swagger UI
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"), // The url pointing to API definition
+	))
+
+	// Public Routes (no auth required)
 	r.Get("/health", healthHandler.Health)
 	r.Get("/ready", healthHandler.Ready)
 
-	// --- API v1 Routes ---
+	// API v1 Routes
 	r.Route("/api/v1", func(r chi.Router) {
 		// Public routes (no auth)
 		r.Group(func(r chi.Router) {

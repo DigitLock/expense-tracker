@@ -21,14 +21,15 @@ func NewCurrencyHandler(exchangeRateRepo *repository.ExchangeRateRepository) *Cu
 }
 
 // GetRates godoc
-// @Summary Get exchange rates
-// @Description Returns current exchange rates
-// @Tags currencies
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {object} dto.SuccessResponse{data=dto.ExchangeRatesResponse}
-// @Failure 401 {object} dto.ErrorResponse
-// @Router /api/v1/currencies/rates [get]
+// @Summary      Get exchange rates
+// @Description  Retrieve current exchange rates for all supported currencies (RSD, EUR) with base currency RSD
+// @Tags         Currencies
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200 {object} dto.SuccessResponse{data=dto.ExchangeRatesResponse} "Current exchange rates"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /currencies/rates [get]
 func (h *CurrencyHandler) GetRates(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
@@ -69,20 +70,20 @@ func (h *CurrencyHandler) GetRates(w http.ResponseWriter, r *http.Request) {
 }
 
 // Convert godoc
-// @Summary Convert currency
-// @Description Converts an amount from one currency to another
-// @Tags currencies
-// @Produce json
-// @Security BearerAuth
-// @Param amount query number true "Amount to convert"
-// @Param from query string true "Source currency (RSD or EUR)"
-// @Param to query string true "Target currency (RSD or EUR)"
-// @Success 200 {object} dto.SuccessResponse{data=dto.ConvertCurrencyResponse}
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 401 {object} dto.ErrorResponse
-// @Router /api/v1/currencies/convert [get]
+// @Summary      Convert currency
+// @Description  Convert an amount from one currency to another using current exchange rates. Supports conversion between RSD and EUR.
+// @Tags         Currencies
+// @Produce      json
+// @Security     BearerAuth
+// @Param        amount query number true "Amount to convert" example(100)
+// @Param        from query string true "Source currency code" Enums(RSD, EUR) example(EUR)
+// @Param        to query string true "Target currency code" Enums(RSD, EUR) example(RSD)
+// @Success      200 {object} dto.SuccessResponse{data=dto.ConvertCurrencyResponse} "Conversion result"
+// @Failure      400 {object} dto.ErrorResponse "Invalid parameters (missing amount, invalid currency codes)"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /currencies/convert [get]
 func (h *CurrencyHandler) Convert(w http.ResponseWriter, r *http.Request) {
-	// Parse parameters
 	amountStr := r.URL.Query().Get("amount")
 	fromCurrency := r.URL.Query().Get("from")
 	toCurrency := r.URL.Query().Get("to")

@@ -27,16 +27,17 @@ func NewCategoryHandler(categoryRepo *repository.CategoryRepository) *CategoryHa
 }
 
 // List godoc
-// @Summary List categories
-// @Description Returns all categories for the authenticated user's family
-// @Tags categories
-// @Produce json
-// @Security BearerAuth
-// @Param type query string false "Filter by type: income or expense"
-// @Param include_inactive query bool false "Include inactive categories"
-// @Success 200 {object} dto.SuccessResponse{data=dto.CategoryListResponse}
-// @Failure 401 {object} dto.ErrorResponse
-// @Router /api/v1/categories [get]
+// @Summary      List categories
+// @Description  Get all transaction categories for the authenticated user's family with optional filters for type and inactive categories. Supports hierarchical structure (parent-child).
+// @Tags         Categories
+// @Produce      json
+// @Security     BearerAuth
+// @Param        type query string false "Filter by type: income or expense" Enums(income, expense)
+// @Param        include_inactive query bool false "Include inactive (deleted) categories" default(false)
+// @Success      200 {object} dto.SuccessResponse{data=dto.CategoryListResponse} "List of categories"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /categories [get]
 func (h *CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -69,17 +70,18 @@ func (h *CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create godoc
-// @Summary Create category
-// @Description Creates a new category for the authenticated user's family
-// @Tags categories
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param request body dto.CreateCategoryRequest true "Category data"
-// @Success 201 {object} dto.SuccessResponse{data=dto.CategoryResponse}
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 401 {object} dto.ErrorResponse
-// @Router /api/v1/categories [post]
+// @Summary      Create category
+// @Description  Create a new transaction category (income or expense) with optional parent for hierarchical structure
+// @Tags         Categories
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body dto.CreateCategoryRequest true "Category creation data"
+// @Success      201 {object} dto.SuccessResponse{data=dto.CategoryResponse} "Category created successfully"
+// @Failure      400 {object} dto.ErrorResponse "Invalid request body or validation error"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /categories [post]
 func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -138,16 +140,18 @@ func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get godoc
-// @Summary Get category
-// @Description Returns a specific category by ID
-// @Tags categories
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Category ID"
-// @Success 200 {object} dto.SuccessResponse{data=dto.CategoryResponse}
-// @Failure 401 {object} dto.ErrorResponse
-// @Failure 404 {object} dto.ErrorResponse
-// @Router /api/v1/categories/{id} [get]
+// @Summary      Get category by ID
+// @Description  Retrieve detailed information about a specific category
+// @Tags         Categories
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Category ID (UUID)" format(uuid)
+// @Success      200 {object} dto.SuccessResponse{data=dto.CategoryResponse} "Category details"
+// @Failure      400 {object} dto.ErrorResponse "Invalid category ID format"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      404 {object} dto.ErrorResponse "Category not found or does not belong to user's family"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /categories/{id} [get]
 func (h *CategoryHandler) Get(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -167,7 +171,7 @@ func (h *CategoryHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check category belongs to user's family
+	// Category belongs to user's family
 	if category.FamilyID != familyID {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found")
 		return
@@ -177,19 +181,20 @@ func (h *CategoryHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update godoc
-// @Summary Update category
-// @Description Updates an existing category (partial update)
-// @Tags categories
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Category ID"
-// @Param request body dto.UpdateCategoryRequest true "Category data"
-// @Success 200 {object} dto.SuccessResponse{data=dto.CategoryResponse}
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 401 {object} dto.ErrorResponse
-// @Failure 404 {object} dto.ErrorResponse
-// @Router /api/v1/categories/{id} [patch]
+// @Summary      Update category
+// @Description  Update category information including name, parent, or active status (partial update)
+// @Tags         Categories
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Category ID (UUID)" format(uuid)
+// @Param        request body dto.UpdateCategoryRequest true "Category update data (partial)"
+// @Success      200 {object} dto.SuccessResponse{data=dto.CategoryResponse} "Category updated successfully"
+// @Failure      400 {object} dto.ErrorResponse "Invalid request body or validation error (e.g., circular parent reference)"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      404 {object} dto.ErrorResponse "Category not found or does not belong to user's family"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /categories/{id} [patch]
 func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -203,7 +208,7 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check category exists and belongs to family
+	// Category exists and belongs to family
 	existing, err := h.categoryRepo.GetByIDIncludingInactive(r.Context(), categoryID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found")
@@ -256,7 +261,7 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Build update input
+	// Updated input
 	input := repository.UpdateCategoryInput{ID: categoryID}
 	if req.Name != nil {
 		input.Name = req.Name
@@ -278,16 +283,18 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete godoc
-// @Summary Delete category
-// @Description Soft deletes a category
-// @Tags categories
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Category ID"
-// @Success 200 {object} dto.MessageResponse
-// @Failure 401 {object} dto.ErrorResponse
-// @Failure 404 {object} dto.ErrorResponse
-// @Router /api/v1/categories/{id} [delete]
+// @Summary      Delete category
+// @Description  Soft delete a category (marks as inactive, preserves transaction history)
+// @Tags         Categories
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Category ID (UUID)" format(uuid)
+// @Success      200 {object} dto.MessageResponse "Category deleted successfully"
+// @Failure      400 {object} dto.ErrorResponse "Invalid category ID format"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      404 {object} dto.ErrorResponse "Category not found or does not belong to user's family"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /categories/{id} [delete]
 func (h *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -301,7 +308,7 @@ func (h *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check category exists and belongs to family
+	// Category exists and belongs to family
 	existing, err := h.categoryRepo.GetByID(r.Context(), categoryID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found")
@@ -320,7 +327,7 @@ func (h *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	writeMessage(w, http.StatusOK, "Category deleted successfully")
 }
 
-// --- Helper functions ---
+// Helper functions
 
 func mapCategory(c sqlc.Category) dto.CategoryResponse {
 	var parentID *uuid.UUID

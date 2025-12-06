@@ -7,68 +7,70 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// --- Spending by Category Report ---
+// Report DTOs -->
 
-// SpendingByCategoryResponse - отчёт по расходам по категориям
+// Spending by Category Report
+
+// SpendingByCategoryResponse represents spending analysis grouped by category
 type SpendingByCategoryResponse struct {
-	ReportType         string             `json:"report_type"`
+	ReportType         string             `json:"report_type" example:"spending_by_category"`
 	Period             ReportPeriod       `json:"period"`
-	Currency           string             `json:"currency"`
-	TransactionType    string             `json:"transaction_type"`
+	Currency           string             `json:"currency" example:"RSD"`
+	TransactionType    string             `json:"transaction_type" example:"expense"`
 	SpendingByCategory []CategorySpending `json:"spending_by_category"`
-	TotalAmount        decimal.Decimal    `json:"total_amount"`
-	TotalTransactions  int                `json:"total_transactions"`
-	GeneratedAt        time.Time          `json:"generated_at"`
+	TotalAmount        decimal.Decimal    `json:"total_amount" example:"58975.00"`
+	TotalTransactions  int                `json:"total_transactions" example:"15"`
+	GeneratedAt        time.Time          `json:"generated_at" example:"2025-12-06T18:30:00Z"`
 }
 
-// ReportPeriod - период отчёта
+// ReportPeriod represents the time period for a report
 type ReportPeriod struct {
-	StartDate string `json:"start_date"`
-	EndDate   string `json:"end_date"`
+	StartDate string `json:"start_date" example:"2025-11-01"`
+	EndDate   string `json:"end_date" example:"2025-11-30"`
 }
 
-// CategorySpending - расходы по одной категории
+// CategorySpending represents spending details for a single category
 type CategorySpending struct {
-	CategoryID            uuid.UUID       `json:"category_id"`
-	CategoryName          string          `json:"category_name"`
-	TotalAmount           decimal.Decimal `json:"total_amount"`
-	TransactionCount      int             `json:"transaction_count"`
-	Percentage            decimal.Decimal `json:"percentage"`
-	AveragePerTransaction decimal.Decimal `json:"average_per_transaction"`
+	CategoryID            uuid.UUID       `json:"category_id" example:"e3b5cae7-cf1d-4c22-a0fe-4014590a7a85"`
+	CategoryName          string          `json:"category_name" example:"Groceries"`
+	TotalAmount           decimal.Decimal `json:"total_amount" example:"11500.00"`
+	TransactionCount      int             `json:"transaction_count" example:"8"`
+	Percentage            decimal.Decimal `json:"percentage" example:"19.5"`
+	AveragePerTransaction decimal.Decimal `json:"average_per_transaction" example:"1437.50"`
 }
 
-// --- Monthly Summary Report ---
+// Monthly Summary Report
 
-// MonthlySummaryResponse - месячная сводка
+// MonthlySummaryResponse represents comprehensive monthly financial summary
 type MonthlySummaryResponse struct {
-	ReportType        string                     `json:"report_type"`
-	Month             string                     `json:"month"`
-	Currency          string                     `json:"currency"`
+	ReportType        string                     `json:"report_type" example:"monthly_summary"`
+	Month             string                     `json:"month" example:"2025-11"`
+	Currency          string                     `json:"currency" example:"RSD"`
 	Summary           MonthlySummary             `json:"summary"`
-	IncomeBreakdown   map[string]decimal.Decimal `json:"income_breakdown"`
-	ExpenseBreakdown  map[string]decimal.Decimal `json:"expense_breakdown"`
+	IncomeBreakdown   map[string]decimal.Decimal `json:"income_breakdown" example:"Freelance:25000,Salary:50000"`
+	ExpenseBreakdown  map[string]decimal.Decimal `json:"expense_breakdown" example:"Groceries:11500,Utilities:8500"`
 	AccountBalances   AccountBalances            `json:"account_balances"`
 	TransactionCounts TransactionCounts          `json:"transaction_counts"`
-	GeneratedAt       time.Time                  `json:"generated_at"`
+	GeneratedAt       time.Time                  `json:"generated_at" example:"2025-12-06T18:30:00Z"`
 }
 
-// MonthlySummary - итоги месяца
+// MonthlySummary represents monthly financial summary metrics
 type MonthlySummary struct {
-	TotalIncome   decimal.Decimal `json:"total_income"`
-	TotalExpenses decimal.Decimal `json:"total_expenses"`
-	NetSavings    decimal.Decimal `json:"net_savings"`
-	SavingsRate   decimal.Decimal `json:"savings_rate"`
+	TotalIncome   decimal.Decimal `json:"total_income" example:"75000.00"`
+	TotalExpenses decimal.Decimal `json:"total_expenses" example:"58975.00"`
+	NetSavings    decimal.Decimal `json:"net_savings" example:"16025.00"`
+	SavingsRate   decimal.Decimal `json:"savings_rate" example:"21.4"`
 }
 
-// AccountBalances - балансы по счетам
+// AccountBalances represents current account balances
 type AccountBalances struct {
-	Accounts map[string]decimal.Decimal `json:"accounts,omitempty"`
-	Total    decimal.Decimal            `json:"total"`
+	Accounts map[string]decimal.Decimal `json:"accounts,omitempty" example:"Cash Wallet RSD:2000,Bank Card RSD:206700"`
+	Total    decimal.Decimal            `json:"total" example:"208700.00"`
 }
 
-// TransactionCounts - количество транзакций
+// TransactionCounts represents transaction count statistics
 type TransactionCounts struct {
-	IncomeTransactions  int `json:"income_transactions"`
-	ExpenseTransactions int `json:"expense_transactions"`
-	TotalTransactions   int `json:"total_transactions"`
+	IncomeTransactions  int `json:"income_transactions" example:"5"`
+	ExpenseTransactions int `json:"expense_transactions" example:"15"`
+	TotalTransactions   int `json:"total_transactions" example:"20"`
 }

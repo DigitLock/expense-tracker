@@ -1,0 +1,1585 @@
+basePath: /api/v1
+definitions:
+  dto.AccountBalanceResponse:
+    properties:
+      account_id:
+        example: 550e8400-e29b-41d4-a716-446655440010
+        type: string
+      account_name:
+        example: Cash Wallet RSD
+        type: string
+      balance_date:
+        example: "2025-12-06T18:30:00Z"
+        type: string
+      currency:
+        example: RSD
+        type: string
+      current_balance:
+        example: 4850.5
+        type: number
+    type: object
+  dto.AccountBalances:
+    properties:
+      accounts:
+        additionalProperties:
+          type: number
+        example:
+          Bank Card RSD: 206700
+          Cash Wallet RSD: 2000
+        type: object
+      total:
+        example: 208700
+        type: number
+    type: object
+  dto.AccountListResponse:
+    properties:
+      accounts:
+        items:
+          $ref: '#/definitions/dto.AccountResponse'
+        type: array
+    type: object
+  dto.AccountResponse:
+    properties:
+      created_at:
+        example: "2025-11-01T10:00:00Z"
+        type: string
+      currency:
+        example: RSD
+        type: string
+      current_balance:
+        example: 4850.5
+        type: number
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440010
+        type: string
+      initial_balance:
+        example: 5000
+        type: number
+      is_active:
+        example: true
+        type: boolean
+      name:
+        example: Cash Wallet RSD
+        type: string
+      type:
+        example: cash
+        type: string
+      updated_at:
+        example: "2025-12-06T18:30:00Z"
+        type: string
+    type: object
+  dto.CategoryListResponse:
+    properties:
+      categories:
+        items:
+          $ref: '#/definitions/dto.CategoryResponse'
+        type: array
+    type: object
+  dto.CategoryResponse:
+    properties:
+      created_at:
+        example: "2025-11-01T10:00:00Z"
+        type: string
+      id:
+        example: e3b5cae7-cf1d-4c22-a0fe-4014590a7a85
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      name:
+        example: Groceries
+        type: string
+      parent_id:
+        example: e3b5cae7-cf1d-4c22-a0fe-4014590a7a84
+        type: string
+      type:
+        example: expense
+        type: string
+      updated_at:
+        example: "2025-12-06T18:30:00Z"
+        type: string
+    type: object
+  dto.CategorySpending:
+    properties:
+      average_per_transaction:
+        example: 1437.5
+        type: number
+      category_id:
+        example: e3b5cae7-cf1d-4c22-a0fe-4014590a7a85
+        type: string
+      category_name:
+        example: Groceries
+        type: string
+      percentage:
+        example: 19.5
+        type: number
+      total_amount:
+        example: 11500
+        type: number
+      transaction_count:
+        example: 8
+        type: integer
+    type: object
+  dto.ConvertCurrencyResponse:
+    properties:
+      conversion_date:
+        example: "2025-12-06T18:30:00Z"
+        type: string
+      converted_amount:
+        example: 11750
+        type: number
+      exchange_rate:
+        example: 117.5
+        type: number
+      original_amount:
+        example: 100
+        type: number
+      original_currency:
+        example: EUR
+        type: string
+      target_currency:
+        example: RSD
+        type: string
+    type: object
+  dto.CreateAccountRequest:
+    properties:
+      currency:
+        enum:
+        - RSD
+        - EUR
+        example: RSD
+        type: string
+      initial_balance:
+        example: 5000
+        type: number
+      name:
+        example: Cash Wallet RSD
+        maxLength: 100
+        minLength: 1
+        type: string
+      type:
+        enum:
+        - cash
+        - checking
+        - savings
+        example: cash
+        type: string
+    required:
+    - currency
+    - initial_balance
+    - name
+    - type
+    type: object
+  dto.CreateCategoryRequest:
+    properties:
+      name:
+        example: Groceries
+        maxLength: 100
+        minLength: 1
+        type: string
+      parent_id:
+        example: e3b5cae7-cf1d-4c22-a0fe-4014590a7a84
+        type: string
+      type:
+        enum:
+        - income
+        - expense
+        example: expense
+        type: string
+    required:
+    - name
+    - type
+    type: object
+  dto.CreateTransactionRequest:
+    properties:
+      account_id:
+        example: 550e8400-e29b-41d4-a716-446655440010
+        type: string
+      amount:
+        example: 1500
+        type: number
+      category_id:
+        example: e3b5cae7-cf1d-4c22-a0fe-4014590a7a85
+        type: string
+      currency:
+        enum:
+        - RSD
+        - EUR
+        example: RSD
+        type: string
+      date:
+        description: YYYY-MM-DD
+        example: "2025-12-06"
+        type: string
+      description:
+        example: Weekly groceries at Maxi
+        maxLength: 500
+        type: string
+      type:
+        enum:
+        - income
+        - expense
+        example: expense
+        type: string
+    required:
+    - account_id
+    - amount
+    - category_id
+    - currency
+    - date
+    - type
+    type: object
+  dto.ErrorDetail:
+    properties:
+      code:
+        example: VALIDATION_ERROR
+        type: string
+      details:
+        items:
+          $ref: '#/definitions/dto.ValidationError'
+        type: array
+      message:
+        example: Invalid input
+        type: string
+    type: object
+  dto.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/dto.ErrorDetail'
+      success:
+        example: false
+        type: boolean
+    type: object
+  dto.ExchangeRatesResponse:
+    properties:
+      base_currency:
+        example: RSD
+        type: string
+      last_updated:
+        example: "2025-12-06T18:30:00Z"
+        type: string
+      rates:
+        additionalProperties:
+          type: number
+        example:
+          EUR: 0.008511
+          RSD: 1
+        type: object
+      source:
+        example: api
+        type: string
+    type: object
+  dto.HealthResponse:
+    properties:
+      database:
+        example: connected
+        type: string
+      status:
+        example: healthy
+        type: string
+      timestamp:
+        example: "2025-12-06T18:30:00Z"
+        type: string
+      version:
+        example: 1.0.0
+        type: string
+    type: object
+  dto.LoginRequest:
+    properties:
+      email:
+        example: demo@example.com
+        type: string
+      password:
+        example: Demo123!
+        minLength: 6
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  dto.LoginResponse:
+    properties:
+      expires_in:
+        description: seconds
+        example: 86400
+        type: integer
+      token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      user:
+        $ref: '#/definitions/dto.UserInfo'
+    type: object
+  dto.MessageResponse:
+    properties:
+      message:
+        example: Operation completed successfully
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  dto.MonthlySummary:
+    properties:
+      net_savings:
+        example: 16025
+        type: number
+      savings_rate:
+        example: 21.4
+        type: number
+      total_expenses:
+        example: 58975
+        type: number
+      total_income:
+        example: 75000
+        type: number
+    type: object
+  dto.MonthlySummaryResponse:
+    properties:
+      account_balances:
+        $ref: '#/definitions/dto.AccountBalances'
+      currency:
+        example: RSD
+        type: string
+      expense_breakdown:
+        additionalProperties:
+          type: number
+        example:
+          Groceries: 11500
+          Utilities: 8500
+        type: object
+      generated_at:
+        example: "2025-12-06T18:30:00Z"
+        type: string
+      income_breakdown:
+        additionalProperties:
+          type: number
+        example:
+          Freelance: 25000
+          Salary: 50000
+        type: object
+      month:
+        example: 2025-11
+        type: string
+      report_type:
+        example: monthly_summary
+        type: string
+      summary:
+        $ref: '#/definitions/dto.MonthlySummary'
+      transaction_counts:
+        $ref: '#/definitions/dto.TransactionCounts'
+    type: object
+  dto.PaginationMeta:
+    properties:
+      page:
+        example: 1
+        type: integer
+      per_page:
+        example: 50
+        type: integer
+      total:
+        example: 150
+        type: integer
+      total_pages:
+        example: 3
+        type: integer
+    type: object
+  dto.ReportPeriod:
+    properties:
+      end_date:
+        example: "2025-11-30"
+        type: string
+      start_date:
+        example: "2025-11-01"
+        type: string
+    type: object
+  dto.SpendingByCategoryResponse:
+    properties:
+      currency:
+        example: RSD
+        type: string
+      generated_at:
+        example: "2025-12-06T18:30:00Z"
+        type: string
+      period:
+        $ref: '#/definitions/dto.ReportPeriod'
+      report_type:
+        example: spending_by_category
+        type: string
+      spending_by_category:
+        items:
+          $ref: '#/definitions/dto.CategorySpending'
+        type: array
+      total_amount:
+        example: 58975
+        type: number
+      total_transactions:
+        example: 15
+        type: integer
+      transaction_type:
+        example: expense
+        type: string
+    type: object
+  dto.SuccessResponse:
+    properties:
+      data: {}
+      success:
+        example: true
+        type: boolean
+    type: object
+  dto.TransactionAccountInfo:
+    properties:
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440010
+        type: string
+      name:
+        example: Cash Wallet RSD
+        type: string
+      type:
+        example: cash
+        type: string
+    type: object
+  dto.TransactionCategoryInfo:
+    properties:
+      id:
+        example: e3b5cae7-cf1d-4c22-a0fe-4014590a7a85
+        type: string
+      name:
+        example: Groceries
+        type: string
+      type:
+        example: expense
+        type: string
+    type: object
+  dto.TransactionCounts:
+    properties:
+      expense_transactions:
+        example: 15
+        type: integer
+      income_transactions:
+        example: 5
+        type: integer
+      total_transactions:
+        example: 20
+        type: integer
+    type: object
+  dto.TransactionListResponse:
+    properties:
+      pagination:
+        $ref: '#/definitions/dto.PaginationMeta'
+      transactions:
+        items:
+          $ref: '#/definitions/dto.TransactionResponse'
+        type: array
+    type: object
+  dto.TransactionResponse:
+    properties:
+      account:
+        $ref: '#/definitions/dto.TransactionAccountInfo'
+      amount:
+        example: 1500
+        type: number
+      amount_base:
+        example: 1500
+        type: number
+      base_currency:
+        example: RSD
+        type: string
+      category:
+        $ref: '#/definitions/dto.TransactionCategoryInfo'
+      created_at:
+        example: "2025-12-06T14:02:29Z"
+        type: string
+      created_by:
+        example: Demo User
+        type: string
+      currency:
+        example: RSD
+        type: string
+      date:
+        example: "2025-12-06"
+        type: string
+      description:
+        example: Weekly groceries at Maxi
+        type: string
+      id:
+        example: c776462c-5df9-4dc5-b69b-90d55547eda5
+        type: string
+      type:
+        example: expense
+        type: string
+    type: object
+  dto.UpdateAccountRequest:
+    properties:
+      is_active:
+        example: true
+        type: boolean
+      name:
+        example: Updated Account Name
+        maxLength: 100
+        minLength: 1
+        type: string
+    type: object
+  dto.UpdateCategoryRequest:
+    properties:
+      is_active:
+        example: true
+        type: boolean
+      name:
+        example: Updated Category Name
+        maxLength: 100
+        minLength: 1
+        type: string
+      parent_id:
+        example: e3b5cae7-cf1d-4c22-a0fe-4014590a7a84
+        type: string
+    type: object
+  dto.UpdateTransactionRequest:
+    properties:
+      account_id:
+        example: 550e8400-e29b-41d4-a716-446655440010
+        type: string
+      amount:
+        example: 1600
+        type: number
+      category_id:
+        example: e3b5cae7-cf1d-4c22-a0fe-4014590a7a85
+        type: string
+      currency:
+        enum:
+        - RSD
+        - EUR
+        example: RSD
+        type: string
+      date:
+        description: YYYY-MM-DD
+        example: "2025-12-05"
+        type: string
+      description:
+        example: Updated description
+        maxLength: 500
+        type: string
+      type:
+        enum:
+        - income
+        - expense
+        example: expense
+        type: string
+    type: object
+  dto.UserInfo:
+    properties:
+      email:
+        example: demo@example.com
+        type: string
+      family_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      name:
+        example: Demo User
+        type: string
+    type: object
+  dto.ValidationError:
+    properties:
+      field:
+        example: email
+        type: string
+      message:
+        example: Invalid email format
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: igor@digitlock.systems
+    name: Igor Kudinov
+  description: Personal and family finance management system with multi-currency support
+    and automatic balance calculation
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: Expense Tracker API
+  version: "1.0"
+paths:
+  /accounts:
+    get:
+      description: Get all accounts for the authenticated user's family with optional
+        filter for inactive accounts
+      parameters:
+      - default: false
+        description: Include inactive (deleted) accounts
+        in: query
+        name: include_inactive
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of accounts
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AccountListResponse'
+              type: object
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List accounts
+      tags:
+      - Accounts
+    post:
+      consumes:
+      - application/json
+      description: Create a new financial account (cash, checking, or savings) for
+        the authenticated user's family
+      parameters:
+      - description: Account creation data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateAccountRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Account created successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AccountResponse'
+              type: object
+        "400":
+          description: Invalid request body or validation error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create account
+      tags:
+      - Accounts
+  /accounts/{id}:
+    delete:
+      description: Soft delete an account (marks as inactive, preserves transaction
+        history)
+      parameters:
+      - description: Account ID (UUID)
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Account deleted successfully
+          schema:
+            $ref: '#/definitions/dto.MessageResponse'
+        "400":
+          description: Invalid account ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Account not found or does not belong to user's family
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete account
+      tags:
+      - Accounts
+    get:
+      description: Retrieve detailed information about a specific account
+      parameters:
+      - description: Account ID (UUID)
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Account details
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AccountResponse'
+              type: object
+        "400":
+          description: Invalid account ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Account not found or does not belong to user's family
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get account by ID
+      tags:
+      - Accounts
+    patch:
+      consumes:
+      - application/json
+      description: Update account information (partial update - only provided fields
+        will be updated)
+      parameters:
+      - description: Account ID (UUID)
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Account update data (partial)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateAccountRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Account updated successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AccountResponse'
+              type: object
+        "400":
+          description: Invalid request body or validation error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Account not found or does not belong to user's family
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update account
+      tags:
+      - Accounts
+  /accounts/{id}/balance:
+    get:
+      description: Retrieve current balance and related information for a specific
+        account
+      parameters:
+      - description: Account ID (UUID)
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Account balance information
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AccountBalanceResponse'
+              type: object
+        "400":
+          description: Invalid account ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Account not found or does not belong to user's family
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get account balance
+      tags:
+      - Accounts
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user with email and password, returns JWT token for
+        accessing protected endpoints
+      parameters:
+      - description: Login credentials (email and password)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.LoginResponse'
+              type: object
+        "400":
+          description: Invalid request body or validation error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Invalid credentials or user inactive
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: User login
+      tags:
+      - Authentication
+  /categories:
+    get:
+      description: Get all transaction categories for the authenticated user's family
+        with optional filters for type and inactive categories. Supports hierarchical
+        structure (parent-child).
+      parameters:
+      - description: 'Filter by type: income or expense'
+        enum:
+        - income
+        - expense
+        in: query
+        name: type
+        type: string
+      - default: false
+        description: Include inactive (deleted) categories
+        in: query
+        name: include_inactive
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of categories
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CategoryListResponse'
+              type: object
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List categories
+      tags:
+      - Categories
+    post:
+      consumes:
+      - application/json
+      description: Create a new transaction category (income or expense) with optional
+        parent for hierarchical structure
+      parameters:
+      - description: Category creation data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Category created successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CategoryResponse'
+              type: object
+        "400":
+          description: Invalid request body or validation error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create category
+      tags:
+      - Categories
+  /categories/{id}:
+    delete:
+      description: Soft delete a category (marks as inactive, preserves transaction
+        history)
+      parameters:
+      - description: Category ID (UUID)
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Category deleted successfully
+          schema:
+            $ref: '#/definitions/dto.MessageResponse'
+        "400":
+          description: Invalid category ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Category not found or does not belong to user's family
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete category
+      tags:
+      - Categories
+    get:
+      description: Retrieve detailed information about a specific category
+      parameters:
+      - description: Category ID (UUID)
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Category details
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CategoryResponse'
+              type: object
+        "400":
+          description: Invalid category ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Category not found or does not belong to user's family
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get category by ID
+      tags:
+      - Categories
+    patch:
+      consumes:
+      - application/json
+      description: Update category information including name, parent, or active status
+        (partial update)
+      parameters:
+      - description: Category ID (UUID)
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Category update data (partial)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Category updated successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CategoryResponse'
+              type: object
+        "400":
+          description: Invalid request body or validation error (e.g., circular parent
+            reference)
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Category not found or does not belong to user's family
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update category
+      tags:
+      - Categories
+  /currencies/convert:
+    get:
+      description: Convert an amount from one currency to another using current exchange
+        rates. Supports conversion between RSD and EUR.
+      parameters:
+      - description: Amount to convert
+        example: 100
+        in: query
+        name: amount
+        required: true
+        type: number
+      - description: Source currency code
+        enum:
+        - RSD
+        - EUR
+        example: EUR
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: Target currency code
+        enum:
+        - RSD
+        - EUR
+        example: RSD
+        in: query
+        name: to
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Conversion result
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ConvertCurrencyResponse'
+              type: object
+        "400":
+          description: Invalid parameters (missing amount, invalid currency codes)
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Convert currency
+      tags:
+      - Currencies
+  /currencies/rates:
+    get:
+      description: Retrieve current exchange rates for all supported currencies (RSD,
+        EUR) with base currency RSD
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Current exchange rates
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ExchangeRatesResponse'
+              type: object
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get exchange rates
+      tags:
+      - Currencies
+  /health:
+    get:
+      description: Returns the overall health status of the service including database
+        connectivity
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is healthy
+          schema:
+            $ref: '#/definitions/dto.HealthResponse'
+        "503":
+          description: Service is degraded (database unhealthy)
+          schema:
+            $ref: '#/definitions/dto.HealthResponse'
+      summary: Health check
+      tags:
+      - Health
+  /ready:
+    get:
+      description: Kubernetes readiness probe endpoint. Returns 200 if service is
+        ready to accept traffic, 503 otherwise.
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: ready
+          schema:
+            type: string
+        "503":
+          description: not ready
+          schema:
+            type: string
+      summary: Readiness check
+      tags:
+      - Health
+  /reports/monthly-summary:
+    get:
+      description: Generate comprehensive monthly financial report including income,
+        expenses, net savings, category breakdowns, and account balances
+      parameters:
+      - description: Month in YYYY-MM format (defaults to current month)
+        example: 2025-11
+        in: query
+        name: month
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Monthly financial summary
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.MonthlySummaryResponse'
+              type: object
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Monthly financial summary
+      tags:
+      - Reports
+  /reports/spending-by-category:
+    get:
+      description: Generate detailed spending analysis grouped by category for a specified
+        date range with percentages and averages
+      parameters:
+      - description: Start date in YYYY-MM-DD format
+        example: "2025-11-01"
+        in: query
+        name: start_date
+        type: string
+      - description: End date in YYYY-MM-DD format
+        example: "2025-11-30"
+        in: query
+        name: end_date
+        type: string
+      - default: expense
+        description: 'Transaction type: income or expense'
+        enum:
+        - income
+        - expense
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Spending analysis report
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.SpendingByCategoryResponse'
+              type: object
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Spending by category report
+      tags:
+      - Reports
+  /transactions:
+    get:
+      description: Get paginated list of transactions for the authenticated user's
+        family with optional filters
+      parameters:
+      - description: 'Filter by type: income or expense'
+        enum:
+        - income
+        - expense
+        in: query
+        name: type
+        type: string
+      - description: Filter by account ID (UUID)
+        format: uuid
+        in: query
+        name: account_id
+        type: string
+      - description: Filter by month in YYYY-MM format
+        example: 2025-12
+        in: query
+        name: month
+        type: string
+      - default: 1
+        description: Page number (starts from 1)
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 50
+        description: Items per page
+        in: query
+        maximum: 100
+        minimum: 1
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Paginated list of transactions
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.TransactionListResponse'
+              type: object
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List transactions
+      tags:
+      - Transactions
+    post:
+      consumes:
+      - application/json
+      description: Create a new income or expense transaction with automatic currency
+        conversion to base currency (RSD)
+      parameters:
+      - description: Transaction creation data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateTransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Transaction created successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.TransactionResponse'
+              type: object
+        "400":
+          description: Invalid request body, validation error, or business rule violation
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create transaction
+      tags:
+      - Transactions
+  /transactions/{id}:
+    delete:
+      description: Soft delete a transaction (marks as inactive, account balance is
+        automatically recalculated)
+      parameters:
+      - description: Transaction ID (UUID)
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transaction deleted successfully
+          schema:
+            $ref: '#/definitions/dto.MessageResponse'
+        "400":
+          description: Invalid transaction ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Transaction not found or does not belong to user's family
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete transaction
+      tags:
+      - Transactions
+    get:
+      description: Retrieve detailed information about a specific transaction
+      parameters:
+      - description: Transaction ID (UUID)
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transaction details
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.TransactionResponse'
+              type: object
+        "400":
+          description: Invalid transaction ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Transaction not found or does not belong to user's family
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get transaction by ID
+      tags:
+      - Transactions
+    patch:
+      consumes:
+      - application/json
+      description: Update transaction information (partial update - only provided
+        fields will be updated). Account balance is automatically recalculated.
+      parameters:
+      - description: Transaction ID (UUID)
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Transaction update data (partial)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateTransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transaction updated successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.TransactionResponse'
+              type: object
+        "400":
+          description: Invalid request body, validation error, or business rule violation
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Transaction not found or does not belong to user's family
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update transaction
+      tags:
+      - Transactions
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
+tags:
+- description: User authentication and authorization
+  name: Authentication
+- description: Financial accounts management
+  name: Accounts
+- description: Transaction categories management
+  name: Categories
+- description: Income and expense transactions
+  name: Transactions
+- description: Financial reports and analytics
+  name: Reports
+- description: Currency exchange rates and conversion
+  name: Currencies

@@ -24,7 +24,6 @@ func New(ctx context.Context, cfg config.DatabaseConfig) (*DB, error) {
 		return nil, fmt.Errorf("failed to parse database config: %w", err)
 	}
 
-	// Connection pool settings
 	poolConfig.MaxConns = 10
 	poolConfig.MinConns = 2
 	poolConfig.MaxConnLifetime = time.Hour
@@ -36,7 +35,6 @@ func New(ctx context.Context, cfg config.DatabaseConfig) (*DB, error) {
 		return nil, fmt.Errorf("failed to create connection pool: %w", err)
 	}
 
-	// Verify connection
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
@@ -51,14 +49,12 @@ func New(ctx context.Context, cfg config.DatabaseConfig) (*DB, error) {
 	}, nil
 }
 
-// Close closes the database connection pool
 func (db *DB) Close() {
 	if db.Pool != nil {
 		db.Pool.Close()
 	}
 }
 
-// Health checks if database connection is alive
 func (db *DB) Health(ctx context.Context) error {
 	return db.Pool.Ping(ctx)
 }

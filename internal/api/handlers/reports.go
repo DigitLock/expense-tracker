@@ -30,17 +30,19 @@ func NewReportHandler(
 }
 
 // SpendingByCategory godoc
-// @Summary Spending by category report
-// @Description Returns spending breakdown by category for a date range
-// @Tags reports
-// @Produce json
-// @Security BearerAuth
-// @Param start_date query string false "Start date (YYYY-MM-DD), default: first day of current month"
-// @Param end_date query string false "End date (YYYY-MM-DD), default: today"
-// @Param type query string false "Transaction type: income or expense (default: expense)"
-// @Success 200 {object} dto.SuccessResponse{data=dto.SpendingByCategoryResponse}
-// @Failure 401 {object} dto.ErrorResponse
-// @Router /api/v1/reports/spending-by-category [get]
+// @Summary      Spending by category report
+// @Description  Generate detailed spending analysis grouped by category for a specified date range with percentages and averages
+// @Tags         Reports
+// @Produce      json
+// @Security     BearerAuth
+// @Param        start_date query string false "Start date in YYYY-MM-DD format" example(2025-11-01)
+// @Param        end_date query string false "End date in YYYY-MM-DD format" example(2025-11-30)
+// @Param        type query string false "Transaction type: income or expense" Enums(income, expense) default(expense)
+// @Success      200 {object} dto.SuccessResponse{data=dto.SpendingByCategoryResponse} "Spending analysis report"
+// @Failure      400 {object} dto.ErrorResponse "Invalid query parameters"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /reports/spending-by-category [get]
 func (h *ReportHandler) SpendingByCategory(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -70,7 +72,7 @@ func (h *ReportHandler) SpendingByCategory(w http.ResponseWriter, r *http.Reques
 		transactionType = "expense"
 	}
 
-	// Get summary by category
+	// Summary by category
 	summaries, err := h.transactionRepo.GetSummaryByCategory(r.Context(), familyID, transactionType, startDate, endDate)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to generate report")
@@ -89,7 +91,6 @@ func (h *ReportHandler) SpendingByCategory(w http.ResponseWriter, r *http.Reques
 	// Build category spending list
 	categorySpending := make([]dto.CategorySpending, len(summaries))
 	for i, s := range summaries {
-		// Get category name
 		categoryName := "Unknown"
 		if cat, err := h.categoryRepo.GetByID(r.Context(), s.CategoryID); err == nil {
 			categoryName = cat.Name
@@ -133,15 +134,17 @@ func (h *ReportHandler) SpendingByCategory(w http.ResponseWriter, r *http.Reques
 }
 
 // MonthlySummary godoc
-// @Summary Monthly summary report
-// @Description Returns financial summary for a specific month
-// @Tags reports
-// @Produce json
-// @Security BearerAuth
-// @Param month query string false "Month (YYYY-MM), default: current month"
-// @Success 200 {object} dto.SuccessResponse{data=dto.MonthlySummaryResponse}
-// @Failure 401 {object} dto.ErrorResponse
-// @Router /api/v1/reports/monthly-summary [get]
+// @Summary      Monthly financial summary
+// @Description  Generate comprehensive monthly financial report including income, expenses, net savings, category breakdowns, and account balances
+// @Tags         Reports
+// @Produce      json
+// @Security     BearerAuth
+// @Param        month query string false "Month in YYYY-MM format (defaults to current month)" example(2025-11)
+// @Success      200 {object} dto.SuccessResponse{data=dto.MonthlySummaryResponse} "Monthly financial summary"
+// @Failure      400 {object} dto.ErrorResponse "Invalid query parameters"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /reports/monthly-summary [get]
 func (h *ReportHandler) MonthlySummary(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -149,7 +152,6 @@ func (h *ReportHandler) MonthlySummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse month parameter
 	now := time.Now()
 	year, month := now.Year(), now.Month()
 
@@ -162,7 +164,7 @@ func (h *ReportHandler) MonthlySummary(w http.ResponseWriter, r *http.Request) {
 	startDate := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 	endDate := startDate.AddDate(0, 1, -1) // Last day of month
 
-	// Get summary by type (income/expense totals)
+	// Summary by type (income/expense totals)
 	typeSummaries, err := h.transactionRepo.GetSummaryByType(r.Context(), familyID, startDate, endDate)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to generate report")
@@ -189,7 +191,7 @@ func (h *ReportHandler) MonthlySummary(w http.ResponseWriter, r *http.Request) {
 		savingsRate = netSavings.Div(totalIncome).Mul(decimal.NewFromInt(100)).Round(1)
 	}
 
-	// Get income breakdown by category
+	// Income breakdown by category
 	incomeSummaries, _ := h.transactionRepo.GetSummaryByCategory(r.Context(), familyID, "income", startDate, endDate)
 	incomeBreakdown := make(map[string]decimal.Decimal)
 	for _, s := range incomeSummaries {
@@ -198,7 +200,7 @@ func (h *ReportHandler) MonthlySummary(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get expense breakdown by category
+	// Expense breakdown by category
 	expenseSummaries, _ := h.transactionRepo.GetSummaryByCategory(r.Context(), familyID, "expense", startDate, endDate)
 	expenseBreakdown := make(map[string]decimal.Decimal)
 	for _, s := range expenseSummaries {
@@ -207,7 +209,7 @@ func (h *ReportHandler) MonthlySummary(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get account balances
+	// Account balances
 	accounts, _ := h.accountRepo.ListByFamily(r.Context(), familyID)
 	accountBalances := make(map[string]decimal.Decimal)
 	var totalBalance decimal.Decimal

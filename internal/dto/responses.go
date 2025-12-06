@@ -2,44 +2,51 @@ package dto
 
 import "time"
 
+// SuccessResponse is a generic successful API response wrapper
 type SuccessResponse struct {
-	Success bool        `json:"success"`
+	Success bool        `json:"success" example:"true"`
 	Data    interface{} `json:"data,omitempty"`
 }
 
+// MessageResponse represents a simple success message response
 type MessageResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
+	Success bool   `json:"success" example:"true"`
+	Message string `json:"message" example:"Operation completed successfully"`
 }
 
+// ErrorResponse represents an API error response
 type ErrorResponse struct {
-	Success bool        `json:"success"`
+	Success bool        `json:"success" example:"false"`
 	Error   ErrorDetail `json:"error"`
 }
 
+// ErrorDetail contains detailed error information
 type ErrorDetail struct {
-	Code    string            `json:"code"`
-	Message string            `json:"message"`
+	Code    string            `json:"code" example:"VALIDATION_ERROR"`
+	Message string            `json:"message" example:"Invalid input"`
 	Details []ValidationError `json:"details,omitempty"`
 }
 
+// ValidationError represents a field validation error
 type ValidationError struct {
-	Field   string `json:"field"`
-	Message string `json:"message"`
+	Field   string `json:"field" example:"email"`
+	Message string `json:"message" example:"Invalid email format"`
 }
 
+// PaginationMeta contains pagination metadata
 type PaginationMeta struct {
-	Page       int `json:"page"`
-	PerPage    int `json:"per_page"`
-	Total      int `json:"total"`
-	TotalPages int `json:"total_pages"`
+	Page       int `json:"page" example:"1"`
+	PerPage    int `json:"per_page" example:"50"`
+	Total      int `json:"total" example:"150"`
+	TotalPages int `json:"total_pages" example:"3"`
 }
 
+// HealthResponse represents health check response
 type HealthResponse struct {
-	Status    string    `json:"status"`
-	Timestamp time.Time `json:"timestamp"`
-	Version   string    `json:"version"`
-	Database  string    `json:"database"`
+	Status    string    `json:"status" example:"healthy"`
+	Timestamp time.Time `json:"timestamp" example:"2025-12-06T18:30:00Z"`
+	Version   string    `json:"version" example:"1.0.0"`
+	Database  string    `json:"database" example:"connected"`
 }
 
 // Helper constructors

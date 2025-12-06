@@ -26,16 +26,17 @@ func NewAuthHandler(userRepo *repository.UserRepository, jwtService *auth.JWTSer
 }
 
 // Login godoc
-// @Summary User login
-// @Description Authenticates user and returns JWT token
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body dto.LoginRequest true "Login credentials"
-// @Success 200 {object} dto.SuccessResponse{data=dto.LoginResponse}
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 401 {object} dto.ErrorResponse
-// @Router /api/v1/auth/login [post]
+// @Summary      User login
+// @Description  Authenticate user with email and password, returns JWT token for accessing protected endpoints
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.LoginRequest true "Login credentials (email and password)"
+// @Success      200 {object} dto.SuccessResponse{data=dto.LoginResponse} "Login successful"
+// @Failure      400 {object} dto.ErrorResponse "Invalid request body or validation error"
+// @Failure      401 {object} dto.ErrorResponse "Invalid credentials or user inactive"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req dto.LoginRequest
 

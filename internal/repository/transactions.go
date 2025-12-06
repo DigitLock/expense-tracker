@@ -290,7 +290,7 @@ func (r *TransactionRepository) ListFiltered(ctx context.Context, filter Transac
 		endDate = pgtype.Date{Time: *filter.EndDate, Valid: true}
 	}
 
-	// Get transactions
+	// Transactions
 	transactions, err := r.queries.ListTransactionsFiltered(ctx, sqlc.ListTransactionsFilteredParams{
 		FamilyID: filter.FamilyID,
 		Column2:  typeFilter,
@@ -304,7 +304,7 @@ func (r *TransactionRepository) ListFiltered(ctx context.Context, filter Transac
 		return nil, 0, err
 	}
 
-	// Get total count
+	// Total count
 	total, err := r.queries.CountTransactionsFiltered(ctx, sqlc.CountTransactionsFilteredParams{
 		FamilyID: filter.FamilyID,
 		Column2:  typeFilter,

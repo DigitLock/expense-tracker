@@ -11,7 +11,7 @@ import (
 	"github.com/DigitLock/expense-tracker/internal/dto"
 )
 
-const AppVersion = "0.1.0"
+const AppVersion = "1.0.0"
 
 type HealthHandler struct {
 	db *pgxpool.Pool
@@ -22,23 +22,24 @@ func NewHealthHandler(db *pgxpool.Pool) *HealthHandler {
 }
 
 // Health godoc
-// @Summary Health check
-// @Description Returns service health status
-// @Tags system
-// @Produce json
-// @Success 200 {object} dto.HealthResponse
-// @Router /health [get]
+// @Summary      Health check
+// @Description  Returns the overall health status of the service including database connectivity
+// @Tags         Health
+// @Produce      json
+// @Success      200 {object} dto.HealthResponse "Service is healthy"
+// @Failure      503 {object} dto.HealthResponse "Service is degraded (database unhealthy)"
+// @Router       /health [get]
 func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 
-	dbStatus := "healthy"
+	dbStatus := "connected"
 	if err := h.db.Ping(ctx); err != nil {
-		dbStatus = "unhealthy"
+		dbStatus = "disconnected"
 	}
 
 	status := "healthy"
-	if dbStatus == "unhealthy" {
+	if dbStatus == "disconnected" {
 		status = "degraded"
 	}
 
@@ -56,6 +57,14 @@ func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// Ready godoc
+// @Summary      Readiness check
+// @Description  Kubernetes readiness probe endpoint. Returns 200 if service is ready to accept traffic, 503 otherwise.
+// @Tags         Health
+// @Produce      plain
+// @Success      200 {string} string "ready"
+// @Failure      503 {string} string "not ready"
+// @Router       /ready [get]
 func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()

@@ -40,19 +40,21 @@ func NewTransactionHandler(
 }
 
 // List godoc
-// @Summary List transactions
-// @Description Returns transactions for the authenticated user's family with pagination
-// @Tags transactions
-// @Produce json
-// @Security BearerAuth
-// @Param type query string false "Filter by type: income or expense"
-// @Param account_id query string false "Filter by account ID"
-// @Param month query string false "Filter by month (YYYY-MM)"
-// @Param page query int false "Page number (default: 1)"
-// @Param per_page query int false "Items per page (default: 50, max: 100)"
-// @Success 200 {object} dto.SuccessResponse{data=dto.TransactionListResponse}
-// @Failure 401 {object} dto.ErrorResponse
-// @Router /api/v1/transactions [get]
+// @Summary      List transactions
+// @Description  Get paginated list of transactions for the authenticated user's family with optional filters
+// @Tags         Transactions
+// @Produce      json
+// @Security     BearerAuth
+// @Param        type query string false "Filter by type: income or expense" Enums(income, expense)
+// @Param        account_id query string false "Filter by account ID (UUID)" format(uuid)
+// @Param        month query string false "Filter by month in YYYY-MM format" example(2025-12)
+// @Param        page query int false "Page number (starts from 1)" default(1) minimum(1)
+// @Param        per_page query int false "Items per page" default(50) minimum(1) maximum(100)
+// @Success      200 {object} dto.SuccessResponse{data=dto.TransactionListResponse} "Paginated list of transactions"
+// @Failure      400 {object} dto.ErrorResponse "Invalid query parameters"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /transactions [get]
 func (h *TransactionHandler) List(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -75,7 +77,6 @@ func (h *TransactionHandler) List(w http.ResponseWriter, r *http.Request) {
 		perPage = 50
 	}
 
-	// Build filter
 	filter := repository.TransactionFilter{
 		FamilyID: familyID,
 		Limit:    int32(perPage),
@@ -101,14 +102,12 @@ func (h *TransactionHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get transactions
 	transactions, total, err := h.transactionRepo.ListFiltered(r.Context(), filter)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to fetch transactions")
 		return
 	}
 
-	// Map to response
 	response := dto.TransactionListResponse{
 		Transactions: make([]dto.TransactionResponse, len(transactions)),
 		Pagination: dto.PaginationMeta{
@@ -127,17 +126,18 @@ func (h *TransactionHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create godoc
-// @Summary Create transaction
-// @Description Creates a new transaction
-// @Tags transactions
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param request body dto.CreateTransactionRequest true "Transaction data"
-// @Success 201 {object} dto.SuccessResponse{data=dto.TransactionResponse}
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 401 {object} dto.ErrorResponse
-// @Router /api/v1/transactions [post]
+// @Summary      Create transaction
+// @Description  Create a new income or expense transaction with automatic currency conversion to base currency (RSD)
+// @Tags         Transactions
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body dto.CreateTransactionRequest true "Transaction creation data"
+// @Success      201 {object} dto.SuccessResponse{data=dto.TransactionResponse} "Transaction created successfully"
+// @Failure      400 {object} dto.ErrorResponse "Invalid request body, validation error, or business rule violation"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /transactions [post]
 func (h *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -157,7 +157,6 @@ func (h *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Struct validation
 	if err := h.validate.Struct(req); err != nil {
 		writeValidationError(w, formatValidationErrors(err))
 		return
@@ -193,10 +192,8 @@ func (h *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse date
 	date, _ := time.Parse("2006-01-02", req.Date)
 
-	// Create transaction
 	transaction, err := h.transactionRepo.Create(r.Context(), repository.CreateTransactionInput{
 		FamilyID:        familyID,
 		AccountID:       req.AccountID,
@@ -217,16 +214,18 @@ func (h *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get godoc
-// @Summary Get transaction
-// @Description Returns a specific transaction by ID
-// @Tags transactions
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Transaction ID"
-// @Success 200 {object} dto.SuccessResponse{data=dto.TransactionResponse}
-// @Failure 401 {object} dto.ErrorResponse
-// @Failure 404 {object} dto.ErrorResponse
-// @Router /api/v1/transactions/{id} [get]
+// @Summary      Get transaction by ID
+// @Description  Retrieve detailed information about a specific transaction
+// @Tags         Transactions
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Transaction ID (UUID)" format(uuid)
+// @Success      200 {object} dto.SuccessResponse{data=dto.TransactionResponse} "Transaction details"
+// @Failure      400 {object} dto.ErrorResponse "Invalid transaction ID format"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      404 {object} dto.ErrorResponse "Transaction not found or does not belong to user's family"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /transactions/{id} [get]
 func (h *TransactionHandler) Get(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -255,19 +254,20 @@ func (h *TransactionHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update godoc
-// @Summary Update transaction
-// @Description Updates an existing transaction (partial update)
-// @Tags transactions
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Transaction ID"
-// @Param request body dto.UpdateTransactionRequest true "Transaction data"
-// @Success 200 {object} dto.SuccessResponse{data=dto.TransactionResponse}
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 401 {object} dto.ErrorResponse
-// @Failure 404 {object} dto.ErrorResponse
-// @Router /api/v1/transactions/{id} [patch]
+// @Summary      Update transaction
+// @Description  Update transaction information (partial update - only provided fields will be updated). Account balance is automatically recalculated.
+// @Tags         Transactions
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Transaction ID (UUID)" format(uuid)
+// @Param        request body dto.UpdateTransactionRequest true "Transaction update data (partial)"
+// @Success      200 {object} dto.SuccessResponse{data=dto.TransactionResponse} "Transaction updated successfully"
+// @Failure      400 {object} dto.ErrorResponse "Invalid request body, validation error, or business rule violation"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      404 {object} dto.ErrorResponse "Transaction not found or does not belong to user's family"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /transactions/{id} [patch]
 func (h *TransactionHandler) Update(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -287,7 +287,6 @@ func (h *TransactionHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get existing transaction
 	existing, err := h.transactionRepo.GetByID(r.Context(), transactionID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "Transaction not found")
@@ -351,7 +350,6 @@ func (h *TransactionHandler) Update(w http.ResponseWriter, r *http.Request) {
 		transactionDate, _ = time.Parse("2006-01-02", *req.Date)
 	}
 
-	// Update transaction
 	transaction, err := h.transactionRepo.Update(r.Context(), repository.UpdateTransactionInput{
 		ID:              transactionID,
 		CategoryID:      categoryID,
@@ -370,16 +368,18 @@ func (h *TransactionHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete godoc
-// @Summary Delete transaction
-// @Description Soft deletes a transaction
-// @Tags transactions
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Transaction ID"
-// @Success 200 {object} dto.MessageResponse
-// @Failure 401 {object} dto.ErrorResponse
-// @Failure 404 {object} dto.ErrorResponse
-// @Router /api/v1/transactions/{id} [delete]
+// @Summary      Delete transaction
+// @Description  Soft delete a transaction (marks as inactive, account balance is automatically recalculated)
+// @Tags         Transactions
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Transaction ID (UUID)" format(uuid)
+// @Success      200 {object} dto.MessageResponse "Transaction deleted successfully"
+// @Failure      400 {object} dto.ErrorResponse "Invalid transaction ID format"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      404 {object} dto.ErrorResponse "Transaction not found or does not belong to user's family"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /transactions/{id} [delete]
 func (h *TransactionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -399,7 +399,6 @@ func (h *TransactionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check exists and belongs to family
 	existing, err := h.transactionRepo.GetByID(r.Context(), transactionID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "Transaction not found")
@@ -418,7 +417,7 @@ func (h *TransactionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	writeMessage(w, http.StatusOK, "Transaction deleted successfully")
 }
 
-// --- Helper functions ---
+// Helper functions
 
 func (h *TransactionHandler) mapTransaction(ctx context.Context, t sqlc.Transaction) dto.TransactionResponse {
 	response := dto.TransactionResponse{

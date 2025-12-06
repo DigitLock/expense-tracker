@@ -27,15 +27,16 @@ func NewAccountHandler(accountRepo *repository.AccountRepository) *AccountHandle
 }
 
 // List godoc
-// @Summary List accounts
-// @Description Returns all accounts for the authenticated user's family
-// @Tags accounts
-// @Produce json
-// @Security BearerAuth
-// @Param include_inactive query bool false "Include inactive accounts"
-// @Success 200 {object} dto.SuccessResponse{data=dto.AccountListResponse}
-// @Failure 401 {object} dto.ErrorResponse
-// @Router /api/v1/accounts [get]
+// @Summary      List accounts
+// @Description  Get all accounts for the authenticated user's family with optional filter for inactive accounts
+// @Tags         Accounts
+// @Produce      json
+// @Security     BearerAuth
+// @Param        include_inactive query bool false "Include inactive (deleted) accounts" default(false)
+// @Success      200 {object} dto.SuccessResponse{data=dto.AccountListResponse} "List of accounts"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /accounts [get]
 func (h *AccountHandler) List(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -64,17 +65,18 @@ func (h *AccountHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create godoc
-// @Summary Create account
-// @Description Creates a new account for the authenticated user's family
-// @Tags accounts
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param request body dto.CreateAccountRequest true "Account data"
-// @Success 201 {object} dto.SuccessResponse{data=dto.AccountResponse}
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 401 {object} dto.ErrorResponse
-// @Router /api/v1/accounts [post]
+// @Summary      Create account
+// @Description  Create a new financial account (cash, checking, or savings) for the authenticated user's family
+// @Tags         Accounts
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body dto.CreateAccountRequest true "Account creation data"
+// @Success      201 {object} dto.SuccessResponse{data=dto.AccountResponse} "Account created successfully"
+// @Failure      400 {object} dto.ErrorResponse "Invalid request body or validation error"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /accounts [post]
 func (h *AccountHandler) Create(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -117,16 +119,18 @@ func (h *AccountHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get godoc
-// @Summary Get account
-// @Description Returns a specific account by ID
-// @Tags accounts
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Account ID"
-// @Success 200 {object} dto.SuccessResponse{data=dto.AccountResponse}
-// @Failure 401 {object} dto.ErrorResponse
-// @Failure 404 {object} dto.ErrorResponse
-// @Router /api/v1/accounts/{id} [get]
+// @Summary      Get account by ID
+// @Description  Retrieve detailed information about a specific account
+// @Tags         Accounts
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Account ID (UUID)" format(uuid)
+// @Success      200 {object} dto.SuccessResponse{data=dto.AccountResponse} "Account details"
+// @Failure      400 {object} dto.ErrorResponse "Invalid account ID format"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      404 {object} dto.ErrorResponse "Account not found or does not belong to user's family"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /accounts/{id} [get]
 func (h *AccountHandler) Get(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -146,7 +150,7 @@ func (h *AccountHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check account belongs to user's family
+	// Account belongs to user's family
 	if account.FamilyID != familyID {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "Account not found")
 		return
@@ -156,19 +160,20 @@ func (h *AccountHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update godoc
-// @Summary Update account
-// @Description Updates an existing account (partial update)
-// @Tags accounts
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Account ID"
-// @Param request body dto.UpdateAccountRequest true "Account data"
-// @Success 200 {object} dto.SuccessResponse{data=dto.AccountResponse}
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 401 {object} dto.ErrorResponse
-// @Failure 404 {object} dto.ErrorResponse
-// @Router /api/v1/accounts/{id} [patch]
+// @Summary      Update account
+// @Description  Update account information (partial update - only provided fields will be updated)
+// @Tags         Accounts
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Account ID (UUID)" format(uuid)
+// @Param        request body dto.UpdateAccountRequest true "Account update data (partial)"
+// @Success      200 {object} dto.SuccessResponse{data=dto.AccountResponse} "Account updated successfully"
+// @Failure      400 {object} dto.ErrorResponse "Invalid request body or validation error"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      404 {object} dto.ErrorResponse "Account not found or does not belong to user's family"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /accounts/{id} [patch]
 func (h *AccountHandler) Update(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -182,7 +187,7 @@ func (h *AccountHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check account exists and belongs to family
+	// Account exists and belongs to family
 	existing, err := h.accountRepo.GetByIDIncludingInactive(r.Context(), accountID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "Account not found")
@@ -204,7 +209,7 @@ func (h *AccountHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build update input
+	// Updated input
 	input := repository.UpdateAccountInput{ID: accountID}
 	if req.Name != nil {
 		input.Name = req.Name
@@ -223,16 +228,18 @@ func (h *AccountHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete godoc
-// @Summary Delete account
-// @Description Soft deletes an account
-// @Tags accounts
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Account ID"
-// @Success 200 {object} dto.MessageResponse
-// @Failure 401 {object} dto.ErrorResponse
-// @Failure 404 {object} dto.ErrorResponse
-// @Router /api/v1/accounts/{id} [delete]
+// @Summary      Delete account
+// @Description  Soft delete an account (marks as inactive, preserves transaction history)
+// @Tags         Accounts
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Account ID (UUID)" format(uuid)
+// @Success      200 {object} dto.MessageResponse "Account deleted successfully"
+// @Failure      400 {object} dto.ErrorResponse "Invalid account ID format"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      404 {object} dto.ErrorResponse "Account not found or does not belong to user's family"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /accounts/{id} [delete]
 func (h *AccountHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -246,7 +253,7 @@ func (h *AccountHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check account exists and belongs to family
+	// Account exists and belongs to family
 	existing, err := h.accountRepo.GetByID(r.Context(), accountID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "Account not found")
@@ -266,16 +273,18 @@ func (h *AccountHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetBalance godoc
-// @Summary Get account balance
-// @Description Returns current balance for an account
-// @Tags accounts
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Account ID"
-// @Success 200 {object} dto.SuccessResponse{data=dto.AccountBalanceResponse}
-// @Failure 401 {object} dto.ErrorResponse
-// @Failure 404 {object} dto.ErrorResponse
-// @Router /api/v1/accounts/{id}/balance [get]
+// @Summary      Get account balance
+// @Description  Retrieve current balance and related information for a specific account
+// @Tags         Accounts
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Account ID (UUID)" format(uuid)
+// @Success      200 {object} dto.SuccessResponse{data=dto.AccountBalanceResponse} "Account balance information"
+// @Failure      400 {object} dto.ErrorResponse "Invalid account ID format"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      404 {object} dto.ErrorResponse "Account not found or does not belong to user's family"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /accounts/{id}/balance [get]
 func (h *AccountHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -311,7 +320,7 @@ func (h *AccountHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 	writeSuccess(w, http.StatusOK, response)
 }
 
-// --- Helper functions ---
+// Helper functions
 
 func writeMessage(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
