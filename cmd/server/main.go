@@ -21,7 +21,7 @@ import (
 // @termsOfService  http://swagger.io/terms/
 
 // @contact.name   Igor Kudinov
-// @contact.email  igor@digitlock.systems
+// @contact.email  digitlock@proton.me
 
 // @license.name  MIT
 // @license.url   https://opensource.org/licenses/MIT
