@@ -299,7 +299,7 @@ SET
     parent_id = $3,
     is_active = $4,
     updated_at = NOW()
-WHERE id = $1
+WHERE id = $1 AND family_id = $5
 RETURNING id, family_id, name, type, parent_id, description, created_at, updated_at, is_active
 `
 
@@ -308,6 +308,7 @@ type UpdateCategoryParams struct {
 	Name     string      `json:"name"`
 	ParentID pgtype.UUID `json:"parent_id"`
 	IsActive bool        `json:"is_active"`
+	FamilyID uuid.UUID   `json:"family_id"`
 }
 
 func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error) {
@@ -316,6 +317,7 @@ func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) 
 		arg.Name,
 		arg.ParentID,
 		arg.IsActive,
+		arg.FamilyID,
 	)
 	var i Category
 	err := row.Scan(

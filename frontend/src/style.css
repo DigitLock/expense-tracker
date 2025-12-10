@@ -1,36 +1,48 @@
 @import "tailwindcss";
 
 @theme {
-  /* Colors */
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(222.2 84% 4.9%);
-  --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(222.2 84% 4.9%);
-  --color-primary: hsl(221.2 83.2% 53.3%);
-  --color-primary-foreground: hsl(210 40% 98%);
-  --color-secondary: hsl(210 40% 96.1%);
-  --color-secondary-foreground: hsl(222.2 47.4% 11.2%);
-  --color-muted: hsl(210 40% 96.1%);
-  --color-muted-foreground: hsl(215.4 16.3% 46.9%);
-  --color-destructive: hsl(0 84.2% 60.2%);
-  --color-destructive-foreground: hsl(210 40% 98%);
-  --color-border: hsl(214.3 31.8% 91.4%);
-  --color-input: hsl(214.3 31.8% 91.4%);
-  --color-ring: hsl(221.2 83.2% 53.3%);
-  
-  /* Chart colors */
-  --color-chart-1: hsl(221.2 83.2% 53.3%);
-  --color-chart-2: hsl(142.1 76.2% 36.3%);
-  --color-chart-3: hsl(24.6 95% 53.1%);
-  --color-chart-4: hsl(262.1 83.3% 57.8%);
-  --color-chart-5: hsl(0 84.2% 60.2%);
-  
-  /* Radius */
-  --radius: 0.5rem;
+    /* Colors */
+    --color-background: hsl(0 0% 100%);
+    --color-foreground: hsl(222.2 84% 4.9%);
+    --color-card: hsl(0 0% 100%);
+    --color-card-foreground: hsl(222.2 84% 4.9%);
+    --color-primary: hsl(221.2 83.2% 53.3%);
+    --color-primary-foreground: hsl(210 40% 98%);
+    --color-secondary: hsl(210 40% 96.1%);
+    --color-secondary-foreground: hsl(222.2 47.4% 11.2%);
+    --color-muted: hsl(210 40% 96.1%);
+    --color-muted-foreground: hsl(215.4 16.3% 46.9%);
+    --color-destructive: hsl(0 84.2% 60.2%);
+    --color-destructive-foreground: hsl(210 40% 98%);
+    --color-border: hsl(214.3 31.8% 91.4%);
+    --color-input: hsl(214.3 31.8% 91.4%);
+    --color-ring: hsl(221.2 83.2% 53.3%);
+
+    /* Chart colors */
+    --color-chart-1: hsl(221.2 83.2% 53.3%);
+    --color-chart-2: hsl(142.1 76.2% 36.3%);
+    --color-chart-3: hsl(24.6 95% 53.1%);
+    --color-chart-4: hsl(262.1 83.3% 57.8%);
+    --color-chart-5: hsl(0 84.2% 60.2%);
+
+    /* Radius */
+    --radius: 0.5rem;
 }
 
 body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
-  font-feature-settings: "rlig" 1, "calt" 1;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* Toast Positioning - Mobile */
+[data-sonner-toaster][data-y-position="top"] {
+    --offset-top: 80px !important;
+}
+
+/* Toast Positioning - Desktop */
+@media (min-width: 1024px) {
+    [data-sonner-toaster][data-y-position="top"] {
+        --offset-top: 16px !important;
+    }
 }

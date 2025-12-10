@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { Toaster } from 'vue-sonner'
 import DefaultLayout from '@/components/layout/DefaultLayout.vue'
 import AuthLayout from '@/components/layout/AuthLayout.vue'
 
@@ -12,7 +13,16 @@ const layout = computed(() => {
 </script>
 
 <template>
-  <component :is="layout">
-    <router-view />
-  </component>
+  <div id="app">
+    <Toaster
+        position="top-right"
+        :duration="5000"
+        :close-button="true"
+        :rich-colors="true"
+    />
+
+    <component :is="layout">
+      <router-view />
+    </component>
+  </div>
 </template>

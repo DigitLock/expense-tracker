@@ -15,12 +15,14 @@ type CreateAccountRequest struct {
 	Type           string          `json:"type" validate:"required,oneof=cash checking savings" example:"cash"`
 	Currency       string          `json:"currency" validate:"required,oneof=RSD EUR" example:"RSD"`
 	InitialBalance decimal.Decimal `json:"initial_balance" validate:"required" example:"5000.00"`
+	Description    *string         `json:"description,omitempty"`
 }
 
 // UpdateAccountRequest represents data for updating an account (partial update)
 type UpdateAccountRequest struct {
-	Name     *string `json:"name,omitempty" validate:"omitempty,min=1,max=100" example:"Updated Account Name"`
-	IsActive *bool   `json:"is_active,omitempty" example:"true"`
+	Name        *string `json:"name,omitempty" validate:"omitempty,min=1,max=100" example:"Updated Account Name"`
+	Description *string `json:"description,omitempty"`
+	IsActive    *bool   `json:"is_active,omitempty" example:"true"`
 }
 
 // Account Responses <--
@@ -31,6 +33,7 @@ type AccountResponse struct {
 	Name           string          `json:"name" example:"Cash Wallet RSD"`
 	Type           string          `json:"type" example:"cash"`
 	Currency       string          `json:"currency" example:"RSD"`
+	Description    *string         `json:"description,omitempty"`
 	InitialBalance decimal.Decimal `json:"initial_balance" example:"5000.00"`
 	CurrentBalance decimal.Decimal `json:"current_balance" example:"4850.50"`
 	IsActive       bool            `json:"is_active" example:"true"`

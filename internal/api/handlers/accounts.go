@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/DigitLock/expense-tracker/internal/api/middleware"
 	"github.com/DigitLock/expense-tracker/internal/database/sqlc"
@@ -23,6 +24,17 @@ func NewAccountHandler(accountRepo *repository.AccountRepository) *AccountHandle
 	return &AccountHandler{
 		accountRepo: accountRepo,
 		validate:    validator.New(),
+	}
+}
+
+// stringToPgText converts *string to pgtype.Text
+func stringToPgText(s *string) pgtype.Text {
+	if s == nil {
+		return pgtype.Text{Valid: false}
+	}
+	return pgtype.Text{
+		String: *s,
+		Valid:  true,
 	}
 }
 
@@ -109,6 +121,7 @@ func (h *AccountHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Type:           req.Type,
 		Currency:       req.Currency,
 		InitialBalance: req.InitialBalance,
+		Description:    stringToPgText(req.Description),
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to create account")
@@ -210,7 +223,11 @@ func (h *AccountHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Updated input
-	input := repository.UpdateAccountInput{ID: accountID}
+	input := repository.UpdateAccountInput{
+		ID:          accountID,
+		FamilyID:    familyID,
+		Description: stringToPgText(req.Description),
+	}
 	if req.Name != nil {
 		input.Name = req.Name
 	}
@@ -325,10 +342,17 @@ func (h *AccountHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 func writeMessage(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(dto.NewMessageResponse(message))
+	if err := json.NewEncoder(w).Encode(dto.NewMessageResponse(message)); err != nil {
+		_ = err
+	}
 }
 
 func mapAccount(a sqlc.Account) dto.AccountResponse {
+	var description *string
+	if a.Description.Valid {
+		description = &a.Description.String
+	}
+
 	return dto.AccountResponse{
 		ID:             a.ID,
 		Name:           a.Name,
@@ -336,6 +360,7 @@ func mapAccount(a sqlc.Account) dto.AccountResponse {
 		Currency:       a.Currency,
 		InitialBalance: a.InitialBalance,
 		CurrentBalance: a.CurrentBalance,
+		Description:    description,
 		IsActive:       a.IsActive,
 		CreatedAt:      a.CreatedAt,
 		UpdatedAt:      a.UpdatedAt,

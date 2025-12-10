@@ -262,7 +262,10 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Updated input
-	input := repository.UpdateCategoryInput{ID: categoryID}
+	input := repository.UpdateCategoryInput{
+		ID:       categoryID,
+		FamilyID: familyID,
+	}
 	if req.Name != nil {
 		input.Name = req.Name
 	}

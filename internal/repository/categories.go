@@ -83,11 +83,11 @@ func (r *CategoryRepository) Create(ctx context.Context, input CreateCategoryInp
 
 // UpdateCategoryInput contains data for updating a category (partial update)
 type UpdateCategoryInput struct {
-	ID       uuid.UUID
-	Name     *string
-	ParentID *uuid.UUID // use special value to clear parent
-	IsActive *bool
-	// Special flag to indicate we want to clear parent_id (set to NULL)
+	ID          uuid.UUID
+	FamilyID    uuid.UUID
+	Name        *string
+	ParentID    *uuid.UUID
+	IsActive    *bool
 	ClearParent bool
 }
 
@@ -122,6 +122,7 @@ func (r *CategoryRepository) Update(ctx context.Context, input UpdateCategoryInp
 		Name:     name,
 		ParentID: parentID,
 		IsActive: isActive,
+		FamilyID: input.FamilyID,
 	})
 }
 

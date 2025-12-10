@@ -46,7 +46,7 @@ SET
     parent_id = $3,
     is_active = $4,
     updated_at = NOW()
-WHERE id = $1
+WHERE id = $1 AND family_id = $5
 RETURNING *;
 
 -- name: DeleteCategory :exec

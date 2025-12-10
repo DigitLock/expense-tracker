@@ -9,14 +9,15 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/shopspring/decimal"
 )
 
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO accounts (
-    id, family_id, name, type, currency, initial_balance, current_balance
+    id, family_id, name, type, currency, initial_balance, current_balance, description
 ) VALUES (
-             $1, $2, $3, $4, $5, $6, $6
+             $1, $2, $3, $4, $5, $6, $6, $7
          )
 RETURNING id, family_id, name, type, currency, initial_balance, current_balance, description, created_at, updated_at, is_active
 `
@@ -28,6 +29,7 @@ type CreateAccountParams struct {
 	Type           string          `json:"type"`
 	Currency       string          `json:"currency"`
 	InitialBalance decimal.Decimal `json:"initial_balance"`
+	Description    pgtype.Text     `json:"description"`
 }
 
 func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error) {
@@ -38,6 +40,7 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		arg.Type,
 		arg.Currency,
 		arg.InitialBalance,
+		arg.Description,
 	)
 	var i Account
 	err := row.Scan(
@@ -274,21 +277,30 @@ func (q *Queries) ListAllAccountsByFamily(ctx context.Context, familyID uuid.UUI
 const updateAccount = `-- name: UpdateAccount :one
 UPDATE accounts
 SET
-    name = $2,
-    is_active = $3,
+    name = COALESCE($3, name),
+    description = $4,
+    is_active = COALESCE($5, is_active),
     updated_at = NOW()
-WHERE id = $1
+WHERE id = $1 AND family_id = $2
 RETURNING id, family_id, name, type, currency, initial_balance, current_balance, description, created_at, updated_at, is_active
 `
 
 type UpdateAccountParams struct {
-	ID       uuid.UUID `json:"id"`
-	Name     string    `json:"name"`
-	IsActive bool      `json:"is_active"`
+	ID          uuid.UUID   `json:"id"`
+	FamilyID    uuid.UUID   `json:"family_id"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+	IsActive    bool        `json:"is_active"`
 }
 
 func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error) {
-	row := q.db.QueryRow(ctx, updateAccount, arg.ID, arg.Name, arg.IsActive)
+	row := q.db.QueryRow(ctx, updateAccount,
+		arg.ID,
+		arg.FamilyID,
+		arg.Name,
+		arg.Description,
+		arg.IsActive,
+	)
 	var i Account
 	err := row.Scan(
 		&i.ID,

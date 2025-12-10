@@ -23,19 +23,20 @@ ORDER BY name;
 
 -- name: CreateAccount :one
 INSERT INTO accounts (
-    id, family_id, name, type, currency, initial_balance, current_balance
+    id, family_id, name, type, currency, initial_balance, current_balance, description
 ) VALUES (
-             $1, $2, $3, $4, $5, $6, $6
+             $1, $2, $3, $4, $5, $6, $6, $7
          )
 RETURNING *;
 
 -- name: UpdateAccount :one
 UPDATE accounts
 SET
-    name = $2,
-    is_active = $3,
+    name = COALESCE($3, name),
+    description = $4,
+    is_active = COALESCE($5, is_active),
     updated_at = NOW()
-WHERE id = $1
+WHERE id = $1 AND family_id = $2
 RETURNING *;
 
 -- name: DeleteAccount :exec

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/shopspring/decimal"
 
 	"github.com/DigitLock/expense-tracker/internal/database/sqlc"
@@ -52,8 +53,9 @@ type CreateAccountInput struct {
 	FamilyID       uuid.UUID
 	Name           string
 	Type           string // cash, checking, savings
-	Currency       string // RSD, EUR
+	Currency       string // RSD, EUR, USD
 	InitialBalance decimal.Decimal
+	Description    pgtype.Text
 }
 
 // Create creates a new account
@@ -65,14 +67,17 @@ func (r *AccountRepository) Create(ctx context.Context, input CreateAccountInput
 		Type:           input.Type,
 		Currency:       input.Currency,
 		InitialBalance: input.InitialBalance,
+		Description:    input.Description,
 	})
 }
 
 // UpdateAccountInput contains data for updating an account (partial update)
 type UpdateAccountInput struct {
-	ID       uuid.UUID
-	Name     *string
-	IsActive *bool
+	ID          uuid.UUID
+	FamilyID    uuid.UUID
+	Name        *string
+	Description pgtype.Text
+	IsActive    *bool
 }
 
 // Update updates account details (partial update)
@@ -89,6 +94,11 @@ func (r *AccountRepository) Update(ctx context.Context, input UpdateAccountInput
 		name = *input.Name
 	}
 
+	description := input.Description
+	if !input.Description.Valid {
+		description = current.Description
+	}
+
 	isActive := current.IsActive
 	if input.IsActive != nil {
 		isActive = *input.IsActive
@@ -96,9 +106,11 @@ func (r *AccountRepository) Update(ctx context.Context, input UpdateAccountInput
 
 	// Update with merged values
 	return r.queries.UpdateAccount(ctx, sqlc.UpdateAccountParams{
-		ID:       input.ID,
-		Name:     name,
-		IsActive: isActive,
+		ID:          input.ID,
+		FamilyID:    current.FamilyID,
+		Name:        name,
+		Description: description,
+		IsActive:    isActive,
 	})
 }
 

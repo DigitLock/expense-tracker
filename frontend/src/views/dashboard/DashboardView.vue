@@ -1,19 +1,24 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { reportsApi, accountsApi } from '@/api'
-import type { MonthlySummaryReport, Account } from '@/types'
+import { reportsApi, accountsApi, categoriesApi } from '@/api'
+import type { MonthlySummaryReport, Account, Category } from '@/types'
 import {
   TrendingUp,
   TrendingDown,
   Wallet,
   PiggyBank,
   ArrowDownRight,
+  Plus,
 } from 'lucide-vue-next'
+import { useModal } from '@/composables/useModal'
+import CreateTransactionModal from '@/components/modals/CreateTransactionModal.vue'
 
 const loading = ref(true)
 const error = ref<string | null>(null)
 const monthlyReport = ref<MonthlySummaryReport | null>(null)
 const accounts = ref<Account[]>([])
+const categories = ref<Category[]>([])
+const createTransactionModal = useModal()
 
 // Current month in YYYY-MM format
 const currentMonth = computed(() => {
@@ -21,11 +26,13 @@ const currentMonth = computed(() => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 })
 
-onMounted(async () => {
+async function loadData() {
   try {
-    const [reportResponse, accountsResponse] = await Promise.all([
+    loading.value = true
+    const [reportResponse, accountsResponse, categoriesResponse] = await Promise.all([
       reportsApi.monthlySummary(currentMonth.value),
       accountsApi.list(),
+      categoriesApi.list(),
     ])
 
     if (reportResponse.success) {
@@ -34,12 +41,19 @@ onMounted(async () => {
     if (accountsResponse.success) {
       accounts.value = accountsResponse.data.accounts.filter((a: Account) => a.is_active)
     }
+    if (categoriesResponse.success) {
+      categories.value = categoriesResponse.data.categories
+    }
   } catch (err: unknown) {
     const axiosError = err as { response?: { data?: { error?: { message?: string } } } }
     error.value = axiosError.response?.data?.error?.message || 'Failed to load dashboard data'
   } finally {
     loading.value = false
   }
+}
+
+onMounted(async () => {
+  await loadData()
 })
 
 function formatCurrency(amount: string | number, currency = 'RSD'): string {
@@ -50,14 +64,29 @@ function formatCurrency(amount: string | number, currency = 'RSD'): string {
     maximumFractionDigits: 0,
   }).format(num) + ' ' + currency
 }
+
+async function handleTransactionCreated() {
+  await loadData()
+  createTransactionModal.close()
+}
 </script>
 
 <template>
   <div>
     <!-- Header -->
-    <div class="mb-8">
-      <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
-      <p class="text-gray-500 mt-1">Overview of your finances</p>
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <p class="text-gray-500 mt-1">Overview of your finances</p>
+      </div>
+
+      <button
+          @click="createTransactionModal.open"
+          class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+      >
+        <Plus class="h-5 w-5" />
+        Add Transaction
+      </button>
     </div>
 
     <!-- Loading state -->
@@ -110,8 +139,8 @@ function formatCurrency(amount: string | number, currency = 'RSD'): string {
             <div>
               <p class="text-sm font-medium text-gray-500">Net Savings</p>
               <p
-                class="text-2xl font-bold mt-1"
-                :class="parseFloat(monthlyReport?.summary.net_savings || '0') >= 0 ? 'text-green-600' : 'text-red-600'"
+                  class="text-2xl font-bold mt-1"
+                  :class="parseFloat(monthlyReport?.summary.net_savings || '0') >= 0 ? 'text-green-600' : 'text-red-600'"
               >
                 {{ formatCurrency(monthlyReport?.summary.net_savings || 0) }}
               </p>
@@ -145,17 +174,17 @@ function formatCurrency(amount: string | number, currency = 'RSD'): string {
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Accounts</h2>
           <div class="space-y-3">
             <div
-              v-for="account in accounts"
-              :key="account.id"
-              class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                v-for="account in accounts"
+                :key="account.id"
+                class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
             >
               <div>
                 <p class="font-medium text-gray-900">{{ account.name }}</p>
                 <p class="text-sm text-gray-500 capitalize">{{ account.type }}</p>
               </div>
               <p
-                class="font-semibold"
-                :class="parseFloat(account.current_balance) >= 0 ? 'text-gray-900' : 'text-red-600'"
+                  class="font-semibold"
+                  :class="parseFloat(account.current_balance) >= 0 ? 'text-gray-900' : 'text-red-600'"
               >
                 {{ formatCurrency(account.current_balance, account.currency) }}
               </p>
@@ -171,9 +200,9 @@ function formatCurrency(amount: string | number, currency = 'RSD'): string {
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Expenses by Category</h2>
           <div class="space-y-3">
             <div
-              v-for="(amount, category) in monthlyReport?.expense_breakdown"
-              :key="category"
-              class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                v-for="(amount, category) in monthlyReport?.expense_breakdown"
+                :key="category"
+                class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
             >
               <div class="flex items-center gap-3">
                 <ArrowDownRight class="h-4 w-4 text-red-500" />
@@ -184,8 +213,8 @@ function formatCurrency(amount: string | number, currency = 'RSD'): string {
               </p>
             </div>
             <div
-              v-if="!monthlyReport?.expense_breakdown || Object.keys(monthlyReport.expense_breakdown).length === 0"
-              class="text-center text-gray-500 py-4"
+                v-if="!monthlyReport?.expense_breakdown || Object.keys(monthlyReport.expense_breakdown).length === 0"
+                class="text-center text-gray-500 py-4"
             >
               No expenses this month
             </div>
@@ -193,5 +222,13 @@ function formatCurrency(amount: string | number, currency = 'RSD'): string {
         </div>
       </div>
     </div>
+
+    <!-- Create Transaction Modal -->
+    <CreateTransactionModal
+        v-model:open="createTransactionModal.isOpen.value"
+        :accounts="accounts"
+        :categories="categories"
+        @created="handleTransactionCreated"
+    />
   </div>
 </template>

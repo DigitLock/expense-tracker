@@ -62,8 +62,8 @@ export interface User {
 // Account Types
 // ============================================
 
-export type AccountType = 'cash' | 'checking' | 'savings'
-export type Currency = 'RSD' | 'EUR'
+export type AccountType = 'cash' | 'bank' | 'credit' | 'savings' | 'investment'
+export type Currency = 'RSD' | 'EUR' | 'USD'
 
 export interface Account {
   id: string
@@ -75,6 +75,7 @@ export interface Account {
   is_active: boolean
   created_at: string
   updated_at: string
+  description?: string
 }
 
 export interface CreateAccountRequest {
