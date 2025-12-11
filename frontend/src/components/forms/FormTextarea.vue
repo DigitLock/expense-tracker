@@ -45,7 +45,7 @@ const props = withDefaults(defineProps<FormTextareaProps>(), {
 })
 
 // VeeValidate integration
-const { value, errorMessage } = useField<string>(() => props.name)
+const { value, errorMessage: _errorMessage } = useField<string>(() => props.name)
 </script>
 
 <template>

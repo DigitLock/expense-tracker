@@ -210,7 +210,7 @@ const handleDelete = () => {
             name="description"
             label="Description (Optional)"
             placeholder="Add a note about this transaction..."
-            rows="3"
+            :rows="3"
         />
 
         <DialogFooter class="pt-4 flex justify-between">

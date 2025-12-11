@@ -58,7 +58,7 @@ const props = withDefaults(defineProps<FormSelectProps>(), {
 })
 
 // VeeValidate integration
-const { value, errorMessage, setValue } = useField<string>(() => props.name)
+const { value, errorMessage: _errorMessage, setValue } = useField<string>(() => props.name)
 
 // Normalize options to object format
 const normalizedOptions = computed(() => {

@@ -51,7 +51,7 @@ const props = withDefaults(defineProps<FormInputProps>(), {
 })
 
 // VeeValidate integration
-const { value, errorMessage } = useField<string | number>(() => props.name)
+const { value, errorMessage: _errorMessage } = useField<string | number>(() => props.name)
 
 // For number inputs, convert string to number
 const handleInput = (event: Event) => {

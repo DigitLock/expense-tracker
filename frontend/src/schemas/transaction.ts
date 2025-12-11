@@ -22,7 +22,7 @@ export const createTransactionSchema = z.object({
         .positive('Amount must be greater than zero')
         .finite('Amount must be a valid number')
         .refine(
-            (val) => Number(val.toFixed(2)) === val || val.toString().split('.')[1]?.length <= 2,
+            (val) => Number(val.toFixed(2)) === val || (val.toString().split('.')[1]?.length ?? 0) <= 2,
             { message: 'Amount can have maximum 2 decimal places' }
         ),
 
@@ -70,7 +70,7 @@ export const updateTransactionSchema = z.object({
         .positive('Amount must be greater than zero')
         .finite('Amount must be a valid number')
         .refine(
-            (val) => Number(val.toFixed(2)) === val || val.toString().split('.')[1]?.length <= 2,
+            (val) => Number(val.toFixed(2)) === val || (val.toString().split('.')[1]?.length ?? 0) <= 2,
             { message: 'Amount can have maximum 2 decimal places' }
         )
         .optional(),

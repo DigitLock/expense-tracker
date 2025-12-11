@@ -83,11 +83,13 @@ export interface CreateAccountRequest {
   type: AccountType
   currency: Currency
   initial_balance: number
+  description?: string
 }
 
 export interface UpdateAccountRequest {
   name?: string
   is_active?: boolean
+  description?: string
 }
 
 export interface AccountBalance {
