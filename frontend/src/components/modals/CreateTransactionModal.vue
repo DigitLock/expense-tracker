@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { transactionsApi } from '@/api'
 import type { Account, Category } from '@/types'
 import { Form } from 'vee-validate'
@@ -32,6 +32,14 @@ const emit = defineEmits<{
 const toast = useToast()
 const submitting = ref(false)
 const selectedType = ref<'income' | 'expense'>('expense')
+const currentFormType = ref<string>('expense')
+
+// Watch currentFormType and sync with selectedType
+watch(currentFormType, (newType) => {
+  if (newType !== selectedType.value) {
+    selectedType.value = newType as 'income' | 'expense'
+  }
+})
 
 // Options
 const typeOptions = [
@@ -70,18 +78,18 @@ const handleOpenChange = (open: boolean) => {
   }
 }
 
-const onSubmit = async (values: any) => {
+const onSubmit = async (formValues: any) => {
   try {
     submitting.value = true
 
     const response = await transactionsApi.create({
-      type: values.type,
-      amount: parseFloat(values.amount),
-      currency: values.currency,
-      account_id: values.account_id,
-      category_id: values.category_id,
-      description: values.description || undefined,
-      date: values.date,
+      type: formValues.type,
+      amount: parseFloat(formValues.amount),
+      currency: formValues.currency,
+      account_id: formValues.account_id,
+      category_id: formValues.category_id,
+      description: formValues.description || undefined,
+      date: formValues.date,
     })
 
     if (response.success) {
@@ -95,7 +103,6 @@ const onSubmit = async (values: any) => {
     const errorDetails = axiosError.response?.data?.error?.details
 
     if (errorDetails && errorDetails.length > 0) {
-      // Show validation errors
       errorDetails.forEach((detail: any) => {
         toast.error(`${detail.field}: ${detail.message}`)
       })
@@ -105,11 +112,6 @@ const onSubmit = async (values: any) => {
   } finally {
     submitting.value = false
   }
-}
-
-// Watch type change to reset category
-const handleTypeChange = (newType: string) => {
-  selectedType.value = newType as 'income' | 'expense'
 }
 </script>
 
@@ -136,8 +138,14 @@ const handleTypeChange = (newType: string) => {
           description: '',
         }"
           class="space-y-4 py-4"
-          v-slot="{ values }"
+          v-slot="{ values, setFieldValue }"
       >
+        <!-- Hidden sync component -->
+        <div style="display: none">
+          {{ currentFormType = values.type }}
+          {{ values.type !== selectedType ? setFieldValue('category_id', '') : null }}
+        </div>
+
         <!-- Type -->
         <FormSelect
             name="type"
@@ -145,7 +153,6 @@ const handleTypeChange = (newType: string) => {
             :options="typeOptions"
             placeholder="Select type"
             required
-            @update:model-value="handleTypeChange"
         />
 
         <!-- Amount & Currency (side by side) -->
@@ -184,7 +191,6 @@ const handleTypeChange = (newType: string) => {
             :options="categoryOptions"
             placeholder="Select category"
             required
-            :key="selectedType"
         />
 
         <!-- Date -->
@@ -201,7 +207,7 @@ const handleTypeChange = (newType: string) => {
             name="description"
             label="Description (Optional)"
             placeholder="Add a note about this transaction..."
-            rows="3"
+            :rows="3"
         />
 
         <DialogFooter class="pt-4">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useField } from 'vee-validate'
 import {
   SelectRoot,
@@ -12,14 +12,14 @@ import FormField from './FormField.vue'
 
 /**
  * FormSelect - Select dropdown with automatic validation
- * 
+ *
  * Integrates VeeValidate with shadcn Select component.
  * Supports both simple arrays and option objects.
- * 
+ *
  * @example
  * ```vue
- * <FormSelect 
- *   name="type" 
+ * <FormSelect
+ *   name="type"
  *   label="Account Type"
  *   :options="accountTypeOptions"
  *   placeholder="Select type"
@@ -58,7 +58,7 @@ const props = withDefaults(defineProps<FormSelectProps>(), {
 })
 
 // VeeValidate integration
-const { value, errorMessage } = useField<string>(() => props.name)
+const { value, errorMessage, setValue } = useField<string>(() => props.name)
 
 // Normalize options to object format
 const normalizedOptions = computed(() => {
@@ -69,29 +69,42 @@ const normalizedOptions = computed(() => {
     return opt
   })
 })
+
+// Watch for options changes and reset value if current value is not in new options
+watch(normalizedOptions, (newOptions) => {
+  if (value.value) {
+    const isValueInOptions = newOptions.some(opt => opt.value === value.value)
+    if (!isValueInOptions) {
+      setValue('')
+    }
+  }
+}, { deep: true })
 </script>
 
 <template>
   <FormField
-    :name="name"
-    :label="label"
-    :required="required"
-    :description="description"
+      :name="name"
+      :label="label"
+      :required="required"
+      :description="description"
   >
     <template #default="{ hasError }">
-      <SelectRoot v-model="value" :disabled="disabled">
+      <SelectRoot
+          v-model="value"
+          :disabled="disabled"
+      >
         <SelectTrigger
-          :id="name"
-          :class="{ 'border-red-500': hasError }"
+            :id="name"
+            :class="{ 'border-red-500': hasError }"
         >
           <SelectValue :placeholder="placeholder" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem
-            v-for="option in normalizedOptions"
-            :key="option.value"
-            :value="option.value"
-            :disabled="option.disabled"
+              v-for="option in normalizedOptions"
+              :key="option.value"
+              :value="option.value"
+              :disabled="option.disabled"
           >
             {{ option.label }}
           </SelectItem>

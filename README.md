@@ -9,29 +9,41 @@ Personal and family finance management system with multi-currency support and au
 - ✅ **Database Schema** - Complete (7 tables, production-ready)
 - ✅ **Backend API** - Complete (23 REST endpoints with JWT auth)
 - ✅ **OpenAPI Documentation** - Complete (Swagger UI available)
-- 🔄 **Frontend** - In Progress (Stage 4)
+- ✅ **Frontend MVP** - Complete (Full CRUD for Accounts, Categories, Transactions)
+- 🧪 **Testing & QA** - In Progress (Stage 5)
 
 ## ✨ Features
 
-- 💰 **Multi-currency support** (RSD/EUR with automatic conversion)
-- 🏦 **Multiple account types** (cash, checking, savings)
-- 🏷️ **Hierarchical categories** (parent-child structure)
+- 💰 **Multi-currency support** (RSD/EUR/USD with automatic conversion)
+- 🏦 **Multiple account types** (cash, bank, credit, savings, investment)
+- 🏷️ **Hierarchical categories** (parent-child structure for income/expense)
 - 📊 **Automatic balance calculation** via database triggers
 - 👥 **Multi-user families** with data isolation
-- 📝 **Complete audit trail** with before/after snapshots
-- 📈 **Historical exchange rates** for accurate reporting
 - 🔐 **JWT authentication** with family-based access control
-- 📊 **Financial reports** (monthly summary, spending by category)
-- 📚 **Interactive API documentation** with Swagger UI
+- 📈 **Transaction management** with filters and pagination
+- 📊 **Financial dashboard** with monthly summary
+- 📱 **Responsive UI** built with Vue.js 3 and Tailwind CSS
+- 🔍 **Advanced filtering** by type, account, date range
+- 📄 **Pagination** for large transaction lists
 
 ## 🏗️ Tech Stack
 
-- **Backend**: Go 1.23+ with Chi router
+### Backend
+- **Language**: Go 1.23+
+- **Router**: Chi v5
 - **Database**: PostgreSQL 16
-- **API**: REST with JWT authentication
-- **Code Generation**: sqlc for type-safe database queries
-- **API Documentation**: Swagger/OpenAPI 2.0
-- **Frontend**: Vue.js 3 (planned)
+- **Query Builder**: sqlc (type-safe SQL)
+- **Authentication**: JWT tokens
+- **API Docs**: Swagger/OpenAPI 2.0
+
+### Frontend
+- **Framework**: Vue.js 3 (Composition API)
+- **Styling**: Tailwind CSS
+- **Form Validation**: VeeValidate + Zod
+- **State Management**: Pinia
+- **HTTP Client**: Axios
+- **Build Tool**: Vite
+- **UI Components**: Custom component library
 
 ## 📚 Documentation
 
@@ -135,9 +147,11 @@ The REST API includes 23 endpoints across 6 categories:
 
 ## 🎨 Demo
 
-Live demo coming soon with pre-loaded sample data for portfolio showcase.
+⚠️ **Demo Environment Status**: QA Testing in progress
 
 **Testing environment**: `https://api.test.expensetracker.digitlock.systems`
+
+**Note**: The application is currently undergoing quality assurance testing. Minor bugs and UI improvements are being addressed.
 
 ## 📋 Project Structure
 
@@ -166,6 +180,21 @@ expense-tracker/
 │   │   └── sqlc/         # Generated type-safe code
 │   ├── dto/              # Data transfer objects (with Swagger tags)
 │   └── repository/       # Business logic layer
+├── frontend/             # Vue.js 3 application
+│   ├── src/
+│   │   ├── api/         # API client
+│   │   ├── components/  # Reusable components
+│   │   │   ├── forms/   # Form components
+│   │   │   ├── modals/  # Modal dialogs
+│   │   │   └── ui/      # Base UI components
+│   │   ├── composables/ # Vue composables
+│   │   ├── router/      # Vue Router config
+│   │   ├── schemas/     # Zod validation schemas
+│   │   ├── stores/      # Pinia stores
+│   │   ├── types/       # TypeScript types
+│   │   └── views/       # Page components
+│   ├── public/
+│   └── package.json
 ├── .env                  # Environment variables
 ├── go.mod               # Go module definition
 └── sqlc.yaml            # sqlc configuration
@@ -196,21 +225,35 @@ expense-tracker/
 - [x] Authentication flow documentation
 - [ ] Postman collection export
 
-### Phase 4: Frontend 🔄
-- [ ] Vue.js 3 setup
-- [ ] API client generation from OpenAPI spec
-- [ ] Authentication UI
-- [ ] Dashboard
-- [ ] Transaction management
-- [ ] Reports and analytics
-- [ ] Responsive design
+### Phase 4: Frontend ✅
+- [x] Vue.js 3 setup with Vite
+- [x] API client with Axios
+- [x] Authentication UI (Login)
+- [x] Dashboard with financial summary
+- [x] Accounts management (full CRUD)
+- [x] Categories management (full CRUD with hierarchy)
+- [x] Transactions management (full CRUD with filters)
+- [x] Form validation with VeeValidate + Zod
+- [x] Responsive design with Tailwind CSS
+- [x] Reusable component library
 
-### Phase 5: Testing & Deployment 📋
-- [ ] Unit tests
+### Phase 5: Testing & QA 🧪
+- [x] Manual testing (in progress)
+- [ ] Bug fixes and improvements
+- [ ] Unit tests (backend)
 - [ ] Integration tests
+- [ ] E2E tests (frontend)
+- [ ] Performance optimization
+- [ ] Security audit
+
+### Phase 6: Deployment 📋
 - [ ] Docker containerization
 - [ ] CI/CD pipeline
 - [ ] Production deployment
+- [ ] Monitoring and logging
+- [ ] Backup strategy
+
+
 
 ## 📄 License
 
@@ -227,7 +270,8 @@ This project is part of my professional portfolio demonstrating:
 - REST API design
 - OpenAPI/Swagger documentation
 - Type-safe code generation (sqlc)
-- Frontend development (Vue.js)
+- Frontend development (Vue.js 3)
+- Full-stack application architecture
 - DevOps and deployment
 
 ## 🔗 Links
