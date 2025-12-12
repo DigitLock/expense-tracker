@@ -11,7 +11,7 @@ export const config = {
     name: 'Expense Tracker',
     version: '1.0.0',
     defaultCurrency: 'RSD' as const,
-    supportedCurrencies: ['RSD', 'EUR'] as const,
+    supportedCurrencies: ['RSD', 'EUR', 'USD'] as const,
   },
   pagination: {
     defaultPageSize: 20,
