@@ -25,6 +25,8 @@ type Querier interface {
 	DeleteFamily(ctx context.Context, id uuid.UUID) error
 	DeleteTransaction(ctx context.Context, id uuid.UUID) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error
+	// Find inactive category with matching name, type, and parent_id
+	FindInactiveCategoryByName(ctx context.Context, arg FindInactiveCategoryByNameParams) (Category, error)
 	GetAccount(ctx context.Context, id uuid.UUID) (Account, error)
 	GetAccountBalance(ctx context.Context, id uuid.UUID) (GetAccountBalanceRow, error)
 	GetAccountIncludingInactive(ctx context.Context, id uuid.UUID) (Account, error)
@@ -59,6 +61,8 @@ type Querier interface {
 	ListTransactionsFiltered(ctx context.Context, arg ListTransactionsFilteredParams) ([]Transaction, error)
 	ListTransactionsPaginated(ctx context.Context, arg ListTransactionsPaginatedParams) ([]Transaction, error)
 	ListUsersByFamily(ctx context.Context, familyID uuid.UUID) ([]User, error)
+	// Reactivate a soft-deleted category
+	RestoreCategory(ctx context.Context, id uuid.UUID) (Category, error)
 	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error)
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
 	UpdateFamily(ctx context.Context, arg UpdateFamilyParams) (Family, error)

@@ -125,6 +125,39 @@ func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Checking for inactive duplicate BEFORE creating
+	inactiveCategory, err := h.categoryRepo.FindInactiveByName(
+		r.Context(),
+		familyID,
+		req.Name,
+		req.Type,
+		req.ParentID,
+	)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to check existing categories")
+		return
+	}
+
+	if inactiveCategory != nil {
+		// Found inactive category - return conflict with restore option
+		var parentID *uuid.UUID
+		if inactiveCategory.ParentID.Valid {
+			id := uuid.UUID(inactiveCategory.ParentID.Bytes)
+			parentID = &id
+		}
+
+		writeErrorWithData(w, http.StatusConflict, "CATEGORY_INACTIVE_EXISTS",
+			"A category with this name was previously deleted. Would you like to restore it?",
+			map[string]interface{}{
+				"inactive_category_id": inactiveCategory.ID,
+				"name":                 inactiveCategory.Name,
+				"type":                 inactiveCategory.Type,
+				"parent_id":            parentID,
+				"deleted_at":           inactiveCategory.UpdatedAt,
+			})
+		return
+	}
+
 	category, err := h.categoryRepo.Create(r.Context(), repository.CreateCategoryInput{
 		FamilyID: familyID,
 		Name:     req.Name,
@@ -330,6 +363,57 @@ func (h *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	writeMessage(w, http.StatusOK, "Category deleted successfully")
 }
 
+// Restore godoc
+// @Summary      Restore deleted category
+// @Description  Reactivate a soft-deleted category
+// @Tags         Categories
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Category ID (UUID)" format(uuid)
+// @Success      200 {object} dto.SuccessResponse{data=dto.CategoryResponse} "Category restored successfully"
+// @Failure      400 {object} dto.ErrorResponse "Invalid category ID format"
+// @Failure      401 {object} dto.ErrorResponse "Unauthorized"
+// @Failure      404 {object} dto.ErrorResponse "Category not found or already active"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /categories/{id}/restore [post]
+func (h *CategoryHandler) Restore(w http.ResponseWriter, r *http.Request) {
+	familyID, ok := middleware.GetFamilyID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Family context not found")
+		return
+	}
+
+	categoryID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "Invalid category ID format")
+		return
+	}
+
+	// Verify category belongs to family before restoring
+	existing, err := h.categoryRepo.GetByIDIncludingInactive(r.Context(), categoryID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found")
+		return
+	}
+	if existing.FamilyID != familyID {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found")
+		return
+	}
+
+	// Restore the category
+	category, err := h.categoryRepo.Restore(r.Context(), categoryID)
+	if err != nil {
+		if err.Error() == "category not found or already active" {
+			writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found or already active")
+		} else {
+			writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
+		}
+		return
+	}
+
+	writeSuccess(w, http.StatusOK, mapCategory(*category))
+}
+
 // Helper functions
 
 func mapCategory(c sqlc.Category) dto.CategoryResponse {
@@ -357,4 +441,19 @@ func mapCategories(categories []sqlc.Category) []dto.CategoryResponse {
 		result[i] = mapCategory(c)
 	}
 	return result
+}
+
+func writeErrorWithData(w http.ResponseWriter, status int, code, message string, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": false,
+		"error": map[string]interface{}{
+			"code":    code,
+			"message": message,
+			"data":    data,
+		},
+	}); err != nil {
+	}
 }

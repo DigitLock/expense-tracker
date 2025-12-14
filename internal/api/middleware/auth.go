@@ -3,6 +3,8 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"log"
 	"net/http"
 	"strings"
 
@@ -47,7 +49,7 @@ func Auth(jwtService *auth.JWTService) func(http.Handler) http.Handler {
 			// Validate JWT token
 			claims, err := jwtService.ValidateToken(tokenString)
 			if err != nil {
-				if err == auth.ErrExpiredToken {
+				if errors.Is(err, auth.ErrExpiredToken) {
 					unauthorizedResponse(w, "TOKEN_EXPIRED", "Token has expired")
 					return
 				}
@@ -69,7 +71,10 @@ func Auth(jwtService *auth.JWTService) func(http.Handler) http.Handler {
 func unauthorizedResponse(w http.ResponseWriter, code, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)
-	json.NewEncoder(w).Encode(dto.NewErrorResponse(code, message, nil))
+	response := dto.NewErrorResponse(code, message, nil)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Failed to encode error response: %v", err)
+	}
 }
 
 // Context helpers

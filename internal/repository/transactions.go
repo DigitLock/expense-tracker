@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,6 +14,14 @@ import (
 
 	"github.com/DigitLock/expense-tracker/internal/database/sqlc"
 )
+
+// deferRollback is a helper to safely rollback a transaction in defer
+// It logs errors except for "transaction already committed" which is expected after Commit()
+func deferRollback(ctx context.Context, tx pgx.Tx) {
+	if err := tx.Rollback(ctx); err != nil {
+		log.Printf("failed to rollback transaction: %v", err)
+	}
+}
 
 // TransactionRepository handles transaction data operations
 type TransactionRepository struct {
@@ -86,7 +95,7 @@ func (r *TransactionRepository) Create(ctx context.Context, input CreateTransact
 	if err != nil {
 		return sqlc.Transaction{}, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer deferRollback(ctx, tx)
 
 	// Set user ID for audit trail
 	_, err = tx.Exec(ctx, fmt.Sprintf("SET LOCAL app.current_user_id = '%s'", input.CreatedBy.String()))
@@ -170,7 +179,7 @@ func (r *TransactionRepository) Update(ctx context.Context, input UpdateTransact
 	if err != nil {
 		return sqlc.Transaction{}, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer deferRollback(ctx, tx)
 
 	// Set user ID for audit trail
 	_, err = tx.Exec(ctx, fmt.Sprintf("SET LOCAL app.current_user_id = '%s'", input.UpdatedBy.String()))
@@ -221,7 +230,7 @@ func (r *TransactionRepository) Delete(ctx context.Context, id uuid.UUID, delete
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer deferRollback(ctx, tx)
 
 	// Set user ID for audit trail
 	_, err = tx.Exec(ctx, fmt.Sprintf("SET LOCAL app.current_user_id = '%s'", deletedBy.String()))

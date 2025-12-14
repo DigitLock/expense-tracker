@@ -63,6 +63,51 @@ func (q *Queries) DeleteCategory(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const findInactiveCategoryByName = `-- name: FindInactiveCategoryByName :one
+SELECT id, family_id, name, type, parent_id, description, created_at, updated_at, is_active
+FROM categories
+WHERE family_id = $1
+  AND LOWER(name) = LOWER($2)
+  AND type = $3
+  AND is_active = false
+  AND (
+    ($4::uuid IS NULL AND parent_id IS NULL) OR
+    (parent_id = $4)
+    )
+ORDER BY updated_at DESC
+LIMIT 1
+`
+
+type FindInactiveCategoryByNameParams struct {
+	FamilyID uuid.UUID   `json:"family_id"`
+	Name     string      `json:"name"`
+	Type     string      `json:"type"`
+	ParentID pgtype.UUID `json:"parent_id"`
+}
+
+// Find inactive category with matching name, type, and parent_id
+func (q *Queries) FindInactiveCategoryByName(ctx context.Context, arg FindInactiveCategoryByNameParams) (Category, error) {
+	row := q.db.QueryRow(ctx, findInactiveCategoryByName,
+		arg.FamilyID,
+		arg.Name,
+		arg.Type,
+		arg.ParentID,
+	)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.FamilyID,
+		&i.Name,
+		&i.Type,
+		&i.ParentID,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsActive,
+	)
+	return i, err
+}
+
 const getCategory = `-- name: GetCategory :one
 SELECT id, family_id, name, type, parent_id, description, created_at, updated_at, is_active FROM categories
 WHERE id = $1 AND is_active = true
@@ -290,6 +335,33 @@ func (q *Queries) ListRootCategories(ctx context.Context, familyID uuid.UUID) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const restoreCategory = `-- name: RestoreCategory :one
+UPDATE categories
+SET is_active = true,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+  AND is_active = false
+RETURNING id, family_id, name, type, parent_id, description, created_at, updated_at, is_active
+`
+
+// Reactivate a soft-deleted category
+func (q *Queries) RestoreCategory(ctx context.Context, id uuid.UUID) (Category, error) {
+	row := q.db.QueryRow(ctx, restoreCategory, id)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.FamilyID,
+		&i.Name,
+		&i.Type,
+		&i.ParentID,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsActive,
+	)
+	return i, err
 }
 
 const updateCategory = `-- name: UpdateCategory :one

@@ -34,6 +34,14 @@ const deleteModal = ref(false)
 const toast = useToast()
 const selectedCategory = ref<Category | null>(null)
 const deleteLoading = ref(false)
+const showRestoreDialog = ref(false)
+const inactiveCategory = ref<{
+  id: string
+  name: string
+  type: string
+  parent_id?: string
+  deleted_at: string
+} | null>(null)
 
 // Load categories
 async function loadCategories() {
@@ -63,16 +71,6 @@ const parentCategories = computed(() => {
   return filteredCategories.value.filter((c: Category) => !c.parent_id)
 })
 
-const parentOptions = computed(() => {
-  // Only root categories of the current type (for create modal)
-  return categories.value
-      .filter((c: Category) => c.type === activeTab.value && !c.parent_id && c.is_active)
-      .map((c: Category) => ({
-        value: c.id,
-        label: c.name,
-      }))
-})
-
 const editParentOptions = computed(() => {
   if (!selectedCategory.value) return []
 
@@ -94,6 +92,19 @@ const categoryTypeOptions = categoryTypes.map(t => ({
   value: t,
   label: categoryTypeLabels[t],
 }))
+
+function getParentOptionsForType(type: string) {
+  return categories.value
+      .filter((c: Category) =>
+          c.type === type &&
+          !c.parent_id &&
+          c.is_active
+      )
+      .map((c: Category) => ({
+        value: c.id,
+        label: c.name,
+      }))
+}
 
 function getChildren(parentId: string): Category[] {
   return filteredCategories.value.filter((c: Category) => c.parent_id === parentId)
@@ -121,14 +132,68 @@ const onCreateSubmit = async (values: any) => {
 
     if (response.success) {
       toast.success('Category created successfully!')
+      activeTab.value = values.type
       createModal.close()
       await loadCategories()
     }
-  } catch (err) {
-    const axiosError = err as { response?: { data?: { error?: { message?: string } } } }
-    const errorMessage = axiosError.response?.data?.error?.message || 'Failed to create category'
+  } catch (err: any) {
+    if (err.response?.status === 409 &&
+        err.response?.data?.error?.code === 'CATEGORY_INACTIVE_EXISTS') {
+
+      const errorData = err.response.data.error.data
+
+      inactiveCategory.value = {
+        id: errorData.inactive_category_id,  // переименовываем
+        name: errorData.name,
+        type: errorData.type,
+        parent_id: errorData.parent_id,
+        deleted_at: errorData.deleted_at,
+      }
+
+      showRestoreDialog.value = true
+      createModal.close()
+
+    } else {
+      const errorMessage = err.response?.data?.error?.message || 'Failed to create category'
+      toast.error(errorMessage)
+    }
+  }
+}
+
+// RESTORE
+const handleRestore = async () => {
+  if (!inactiveCategory.value) return
+
+  try {
+    const response = await categoriesApi.restore(inactiveCategory.value.id)
+
+    if (response.success) {
+      toast.success('Category restored successfully!')
+      activeTab.value = inactiveCategory.value.type as 'income' | 'expense'
+      showRestoreDialog.value = false
+      inactiveCategory.value = null
+      await loadCategories()
+    }
+  } catch (err: any) {
+    const errorMessage = err.response?.data?.error?.message || 'Failed to restore category'
     toast.error(errorMessage)
   }
+}
+
+const handleCancelRestore = () => {
+  showRestoreDialog.value = false
+  inactiveCategory.value = null
+}
+
+const formatDate = (dateString?: string) => {
+  if (!dateString) return 'Unknown'
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 // EDIT
@@ -285,10 +350,11 @@ async function handleDeleteConfirm() {
           @submit="onCreateSubmit"
           :validation-schema="toTypedSchema(createCategorySchema)"
           :initial-values="{
-          name: '',
-          type: activeTab,
-          parent_id: null,
-        }"
+      name: '',
+      type: activeTab,
+      parent_id: null,
+    }"
+          v-slot="{ values, setFieldValue }"
           class="space-y-4 py-4"
       >
         <FormInput
@@ -304,12 +370,15 @@ async function handleDeleteConfirm() {
             :options="categoryTypeOptions"
             placeholder="Select type"
             required
+            @update:modelValue="() => {
+        setFieldValue('parent_id', null)
+      }"
         />
 
         <FormSelect
             name="parent_id"
             label="Parent Category (Optional)"
-            :options="parentOptions"
+            :options="getParentOptionsForType(values.type)"
             placeholder="None - Top level category"
         />
 
@@ -428,4 +497,48 @@ async function handleDeleteConfirm() {
       :loading="deleteLoading"
       @confirm="handleDeleteConfirm"
   />
+
+  <!-- Restore Confirmation Dialog -->
+  <DialogRoot v-model:open="showRestoreDialog">
+    <DialogContent class="sm:max-w-[500px]">
+      <DialogHeader>
+        <DialogTitle>Category Already Exists</DialogTitle>
+        <DialogDescription>
+          This category was previously deleted
+        </DialogDescription>
+      </DialogHeader>
+
+      <div class="py-4">
+        <div class="flex items-start gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div class="flex-shrink-0 mt-0.5">
+            <svg class="h-5 w-5 text-yellow-600 fill-none stroke-current" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div class="flex-1">
+            <p class="text-sm text-gray-700">
+              A category named <strong class="font-semibold text-gray-900">"{{ inactiveCategory?.name }}"</strong>
+              was previously deleted.
+            </p>
+            <p class="text-sm text-gray-700 mt-2">
+              Would you like to restore it instead of creating a new one?
+            </p>
+            <p class="text-xs text-gray-500 mt-3">
+              Deleted: {{ formatDate(inactiveCategory?.deleted_at) }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button type="button" variant="outline" @click="handleCancelRestore">
+          Cancel
+        </Button>
+        <Button type="button" @click="handleRestore">
+          Restore Category
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </DialogRoot>
 </template>

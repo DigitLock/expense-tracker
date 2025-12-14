@@ -135,7 +135,7 @@ const onSubmit = async (formValues: any) => {
           account_id: '',
           category_id: '',
           date: getTodayDateString(),
-          description: '',
+          description: ''
         }"
           class="space-y-4 py-4"
           v-slot="{ values, setFieldValue }"

@@ -81,26 +81,6 @@ export const updateTransactionSchema = z.object({
         .uuid('Invalid category ID')
         .optional(),
 
-    date: z.string()
-        .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
-        .refine(
-            (date) => {
-                const parsed = new Date(date)
-                return !isNaN(parsed.getTime())
-            },
-            { message: 'Invalid date' }
-        )
-        .refine(
-            (date) => {
-                const parsed = new Date(date)
-                const now = new Date()
-                now.setHours(23, 59, 59, 999)
-                return parsed <= now
-            },
-            { message: 'Transaction date cannot be in the future' }
-        )
-        .optional(),
-
     description: z.string()
         .max(500, 'Description must be less than 500 characters')
         .optional()

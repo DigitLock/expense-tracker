@@ -49,7 +49,7 @@ type HealthResponse struct {
 	Database  string    `json:"database" example:"connected"`
 }
 
-// Helper constructors
+// NewSuccessResponse creates a successful API response with data
 func NewSuccessResponse(data interface{}) SuccessResponse {
 	return SuccessResponse{
 		Success: true,
@@ -57,6 +57,7 @@ func NewSuccessResponse(data interface{}) SuccessResponse {
 	}
 }
 
+// NewMessageResponse creates a successful API response with a message
 func NewMessageResponse(message string) MessageResponse {
 	return MessageResponse{
 		Success: true,
@@ -64,6 +65,7 @@ func NewMessageResponse(message string) MessageResponse {
 	}
 }
 
+// NewErrorResponse creates an error API response with code, message and optional validation details
 func NewErrorResponse(code, message string, details []ValidationError) ErrorResponse {
 	return ErrorResponse{
 		Success: false,

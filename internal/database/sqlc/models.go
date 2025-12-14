@@ -63,7 +63,7 @@ type Category struct {
 	ID uuid.UUID `json:"id"`
 	// Foreign key to families. ON DELETE CASCADE.
 	FamilyID uuid.UUID `json:"family_id"`
-	// Category name. Examples: "Food", "Groceries", "Salary". Must be unique per family and type.
+	// Category name. Examples: "Food", "Groceries", "Salary". Must be unique per family, type, and parent (only for active categories).
 	Name string `json:"name"`
 	// Category type: income (for income transactions) or expense (for expense transactions)
 	Type string `json:"type"`

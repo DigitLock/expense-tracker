@@ -53,3 +53,27 @@ RETURNING *;
 UPDATE categories
 SET is_active = false, updated_at = NOW()
 WHERE id = $1;
+
+-- name: FindInactiveCategoryByName :one
+-- Find inactive category with matching name, type, and parent_id
+SELECT id, family_id, name, type, parent_id, description, created_at, updated_at, is_active
+FROM categories
+WHERE family_id = sqlc.arg(family_id)
+  AND LOWER(name) = LOWER(sqlc.arg(name))
+  AND type = sqlc.arg(type)
+  AND is_active = false
+  AND (
+    (sqlc.narg(parent_id)::uuid IS NULL AND parent_id IS NULL) OR
+    (parent_id = sqlc.narg(parent_id))
+    )
+ORDER BY updated_at DESC
+LIMIT 1;
+
+-- name: RestoreCategory :one
+-- Reactivate a soft-deleted category
+UPDATE categories
+SET is_active = true,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+  AND is_active = false
+RETURNING id, family_id, name, type, parent_id, description, created_at, updated_at, is_active;

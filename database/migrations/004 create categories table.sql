@@ -27,11 +27,11 @@ CREATE TABLE categories (
                             CONSTRAINT categories_type_check
                                 CHECK (type IN ('income', 'expense')),
                             CONSTRAINT categories_name_length
-                                CHECK (LENGTH(name) >= 1),
-                            CONSTRAINT categories_unique_name
-                                UNIQUE (family_id, name, type)
+                                CHECK (LENGTH(name) >= 1)
+    -- Note: Unique constraint removed - replaced with partial index below
 );
 
+-- Standard indexes
 CREATE INDEX idx_categories_family
     ON categories(family_id);
 CREATE INDEX idx_categories_type
@@ -45,6 +45,19 @@ CREATE INDEX idx_categories_family_type
     ON categories(family_id, type)
     WHERE is_active = true;
 
+-- Partial unique index: ensures uniqueness only for active categories
+-- Allows reusing names from soft-deleted categories
+-- Considers parent_id to allow same name in different parent categories
+CREATE UNIQUE INDEX idx_categories_unique_active
+    ON categories(
+                  family_id,
+                  LOWER(name),  -- case-insensitive
+                  type,
+                  COALESCE(parent_id, '00000000-0000-0000-0000-000000000000'::uuid)  -- handle NULL parent_id
+        )
+    WHERE is_active = true;
+
+-- Table comments
 COMMENT ON TABLE categories IS
     'Income and expense categories for transaction classification. Supports hierarchical structure (parent-child relationships).';
 COMMENT ON COLUMN categories.id IS
@@ -52,7 +65,7 @@ COMMENT ON COLUMN categories.id IS
 COMMENT ON COLUMN categories.family_id IS
     'Foreign key to families. ON DELETE CASCADE.';
 COMMENT ON COLUMN categories.name IS
-    'Category name. Examples: "Food", "Groceries", "Salary". Must be unique per family and type.';
+    'Category name. Examples: "Food", "Groceries", "Salary". Must be unique per family, type, and parent (only for active categories).';
 COMMENT ON COLUMN categories.type IS
     'Category type: income (for income transactions) or expense (for expense transactions)';
 COMMENT ON COLUMN categories.parent_id IS
@@ -66,10 +79,16 @@ COMMENT ON COLUMN categories.updated_at IS
 COMMENT ON COLUMN categories.is_active IS
     'Soft delete flag. true = active category, false = deleted category (transactions preserved)';
 
+-- Index comment
+COMMENT ON INDEX idx_categories_unique_active IS
+    'Ensures unique category names within family, type, and parent, but only for active categories. Allows reusing names from soft-deleted categories.';
+
+-- Trigger for updated_at
 CREATE TRIGGER trigger_categories_updated_at
     BEFORE UPDATE ON categories
     FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
+
 COMMENT ON TRIGGER trigger_categories_updated_at ON categories IS
     'Updates updated_at timestamp automatically on every UPDATE';
 

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
@@ -88,34 +89,35 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 func writeSuccess(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(dto.NewSuccessResponse(data))
+	_ = json.NewEncoder(w).Encode(dto.NewSuccessResponse(data))
 }
 
 func writeError(w http.ResponseWriter, status int, code, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(dto.NewErrorResponse(code, message, nil))
+	_ = json.NewEncoder(w).Encode(dto.NewErrorResponse(code, message, nil))
 }
 
 func writeValidationError(w http.ResponseWriter, details []dto.ValidationError) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusBadRequest)
-	json.NewEncoder(w).Encode(dto.NewErrorResponse("VALIDATION_ERROR", "Invalid input", details))
+	_ = json.NewEncoder(w).Encode(dto.NewErrorResponse("VALIDATION_ERROR", "Invalid input", details))
 }
 
 func formatValidationErrors(err error) []dto.ValidationError {
-	var errors []dto.ValidationError
+	var validationErrs []dto.ValidationError
+	var validationErrors validator.ValidationErrors
 
-	if validationErrors, ok := err.(validator.ValidationErrors); ok {
+	if errors.As(err, &validationErrors) {
 		for _, e := range validationErrors {
-			errors = append(errors, dto.ValidationError{
+			validationErrs = append(validationErrs, dto.ValidationError{
 				Field:   e.Field(),
 				Message: formatValidationMessage(e),
 			})
 		}
 	}
 
-	return errors
+	return validationErrs
 }
 
 func formatValidationMessage(e validator.FieldError) string {

@@ -25,7 +25,9 @@ func Recovery(next http.Handler) http.Handler {
 					"An unexpected error occurred",
 					nil,
 				)
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					log.Printf("ERROR encoding response: %v", err)
+				}
 			}
 		}()
 

@@ -106,6 +106,11 @@ export const categoriesApi = {
     const response = await apiClient.delete<ApiResponse<{ message: string }>>(`/categories/${id}`)
     return response.data
   },
+
+  restore: async (id: string): Promise<ApiResponse<Category>> => {
+    const response = await apiClient.post(`/categories/${id}/restore`)
+    return response.data
+  },
 }
 
 // ============================================

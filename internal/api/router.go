@@ -91,6 +91,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, repos *repository.Repositor
 				r.Get("/{id}", categoryHandler.Get)
 				r.Patch("/{id}", categoryHandler.Update)
 				r.Delete("/{id}", categoryHandler.Delete)
+				r.Post("/{id}/restore", categoryHandler.Restore)
 			})
 
 			// Transactions

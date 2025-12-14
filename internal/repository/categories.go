@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -129,4 +130,42 @@ func (r *CategoryRepository) Update(ctx context.Context, input UpdateCategoryInp
 // Delete soft-deletes a category
 func (r *CategoryRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.queries.DeleteCategory(ctx, id)
+}
+
+// FindInactiveByName finds an inactive category with matching parameters
+func (r *CategoryRepository) FindInactiveByName(ctx context.Context, familyID uuid.UUID, name string, categoryType string, parentID *uuid.UUID) (*sqlc.Category, error) {
+	var parentIDParam pgtype.UUID
+	if parentID != nil {
+		parentIDParam = pgtype.UUID{Bytes: *parentID, Valid: true}
+	}
+
+	category, err := r.queries.FindInactiveCategoryByName(ctx, sqlc.FindInactiveCategoryByNameParams{
+		FamilyID: familyID,
+		Name:     name,
+		Type:     categoryType,
+		ParentID: parentIDParam,
+	})
+
+	if err != nil {
+		// pgx returns specific error for no rows
+		if err.Error() == "no rows in result set" {
+			return nil, nil // Not found - OK to create new
+		}
+		return nil, err
+	}
+
+	return &category, nil
+}
+
+// Restore reactivates a soft-deleted category
+func (r *CategoryRepository) Restore(ctx context.Context, id uuid.UUID) (*sqlc.Category, error) {
+	category, err := r.queries.RestoreCategory(ctx, id)
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			return nil, fmt.Errorf("category not found or already active")
+		}
+		return nil, err
+	}
+
+	return &category, nil
 }

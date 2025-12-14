@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, toRefs, computed } from 'vue'
 import { transactionsApi } from '@/api'
 import type { Transaction, Account, Category } from '@/types'
 import { Form } from 'vee-validate'
@@ -26,6 +26,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const { transaction } = toRefs(props)
 const emit = defineEmits<{
   'update:open': [value: boolean]
   'updated': []

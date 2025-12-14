@@ -19,7 +19,7 @@ async function handleSubmit() {
 
   if (success) {
     const redirect = route.query.redirect as string
-    router.push(redirect || '/')
+    await router.push(redirect || '/')
   }
 }
 </script>
@@ -91,11 +91,10 @@ async function handleSubmit() {
       >
         <LogIn v-if="!authStore.loading" class="h-5 w-5" />
         <svg
-          v-else
-          class="animate-spin h-5 w-5"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
+            v-else
+            class="animate-spin h-5 w-5 fill-none"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
         >
           <circle
             class="opacity-25"
