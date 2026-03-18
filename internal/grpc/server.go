@@ -11,6 +11,7 @@ import (
 	"github.com/DigitLock/expense-tracker/internal/grpc/interceptors"
 	pb "github.com/DigitLock/expense-tracker/internal/grpc/pb"
 	"github.com/DigitLock/expense-tracker/internal/repository"
+	"google.golang.org/grpc/reflection"
 )
 
 type Server struct {
@@ -29,6 +30,8 @@ func NewServer(repos *repository.Repositories, jwtService *auth.JWTService, port
 	pb.RegisterAccountServiceServer(grpcServer, grpchandlers.NewAccountHandler(repos))
 	pb.RegisterTransactionServiceServer(grpcServer, grpchandlers.NewTransactionHandler(repos))
 
+	reflection.Register(grpcServer)
+	
 	return &Server{
 		grpcServer: grpcServer,
 		port:       port,
