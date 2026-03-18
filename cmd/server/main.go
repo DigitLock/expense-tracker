@@ -10,8 +10,10 @@ import (
 
 	_ "github.com/DigitLock/expense-tracker/Documentation/swagger" // Swagger docs
 	"github.com/DigitLock/expense-tracker/internal/api"
+	"github.com/DigitLock/expense-tracker/internal/auth"
 	"github.com/DigitLock/expense-tracker/internal/config"
 	"github.com/DigitLock/expense-tracker/internal/database"
+	grpcserver "github.com/DigitLock/expense-tracker/internal/grpc"
 	"github.com/DigitLock/expense-tracker/internal/repository"
 )
 
@@ -76,6 +78,17 @@ func main() {
 	repos := repository.New(db.Pool)
 	log.Println("Repositories initialized")
 
+	jwtService := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.ExpirationHours)
+
+	grpcSrv := grpcserver.NewServer(repos, jwtService, cfg.Server.GRPCPort)
+
+	log.Printf("gRPC server starting on port %d\n", cfg.Server.GRPCPort)
+	go func() {
+		if err := grpcSrv.Start(); err != nil {
+			log.Fatalf("gRPC server error: %v", err)
+		}
+	}()
+
 	router := api.NewRouter(cfg, db.Pool, repos)
 
 	server := api.NewServer(&cfg.Server, router)
@@ -103,6 +116,8 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("Server forced to shutdown: %v", err)
 	}
+
+	grpcSrv.Stop()
 
 	log.Println("Server stopped gracefully")
 }

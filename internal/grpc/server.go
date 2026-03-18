@@ -1,0 +1,48 @@
+package grpc
+
+import (
+	"fmt"
+	"net"
+
+	"google.golang.org/grpc"
+
+	"github.com/DigitLock/expense-tracker/internal/auth"
+	grpchandlers "github.com/DigitLock/expense-tracker/internal/grpc/handlers"
+	"github.com/DigitLock/expense-tracker/internal/grpc/interceptors"
+	pb "github.com/DigitLock/expense-tracker/internal/grpc/pb"
+	"github.com/DigitLock/expense-tracker/internal/repository"
+)
+
+type Server struct {
+	grpcServer *grpc.Server
+	port       int
+}
+
+func NewServer(repos *repository.Repositories, jwtService *auth.JWTService, port int) *Server {
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			interceptors.LoggingInterceptor(),
+			interceptors.AuthInterceptor(jwtService),
+		),
+	)
+
+	pb.RegisterAccountServiceServer(grpcServer, grpchandlers.NewAccountHandler(repos))
+	pb.RegisterTransactionServiceServer(grpcServer, grpchandlers.NewTransactionHandler(repos))
+
+	return &Server{
+		grpcServer: grpcServer,
+		port:       port,
+	}
+}
+
+func (s *Server) Start() error {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
+	if err != nil {
+		return fmt.Errorf("failed to listen on port %d: %w", err)
+	}
+	return s.grpcServer.Serve(lis)
+}
+
+func (s *Server) Stop() {
+	s.grpcServer.GracefulStop()
+}

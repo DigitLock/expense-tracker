@@ -10,7 +10,8 @@ Personal and family finance management system with multi-currency support and au
 - ✅ **Backend API** - Complete (23 REST endpoints with JWT auth)
 - ✅ **OpenAPI Documentation** - Complete (Swagger UI available)
 - ✅ **Frontend MVP** - Complete (Full CRUD for Accounts, Categories, Transactions)
-- 🧪 **Testing & QA** - In Progress (Stage 5)
+- ✅ **gRPC API** - Complete (Stage 6: Mobile API with dual-protocol architecture)
+- 🧪 **Testing & QA** - In Progress (Stage 5 / v0.1.0)
 
 ## ✨ Features
 
@@ -25,6 +26,7 @@ Personal and family finance management system with multi-currency support and au
 - 📱 **Responsive UI** built with Vue.js 3 and Tailwind CSS
 - 🔍 **Advanced filtering** by type, account, date range
 - 📄 **Pagination** for large transaction lists
+- 📡 **gRPC API** for mobile clients (dual-protocol: REST + gRPC)
 
 ## 🏗️ Tech Stack
 
@@ -35,6 +37,7 @@ Personal and family finance management system with multi-currency support and au
 - **Query Builder**: sqlc (type-safe SQL)
 - **Authentication**: JWT tokens
 - **API Docs**: Swagger/OpenAPI 2.0
+- **gRPC**: Protocol Buffers + gRPC (mobile API)
 
 ### Frontend
 - **Framework**: Vue.js 3 (Composition API)
@@ -104,16 +107,18 @@ See [`database/migrations/README.md`](database/migrations/README.md) for details
 
 ## 🚀 API Endpoints
 
+### REST API (port 8080)
+
 The REST API includes 23 endpoints across 6 categories:
 
-### Authentication
+#### Authentication
 - `POST /api/v1/auth/login` - User login with JWT
 
-### Health
+#### Health
 - `GET /health` - Health check
 - `GET /ready` - Readiness probe
 
-### Accounts
+#### Accounts
 - `GET /api/v1/accounts` - List all accounts
 - `POST /api/v1/accounts` - Create account
 - `GET /api/v1/accounts/{id}` - Get account details
@@ -121,29 +126,64 @@ The REST API includes 23 endpoints across 6 categories:
 - `DELETE /api/v1/accounts/{id}` - Delete account
 - `GET /api/v1/accounts/{id}/balance` - Get account balance
 
-### Categories
+#### Categories
 - `GET /api/v1/categories` - List all categories
 - `POST /api/v1/categories` - Create category
 - `GET /api/v1/categories/{id}` - Get category details
 - `PATCH /api/v1/categories/{id}` - Update category
 - `DELETE /api/v1/categories/{id}` - Delete category
 
-### Transactions
+#### Transactions
 - `GET /api/v1/transactions` - List transactions (with filters & pagination)
 - `POST /api/v1/transactions` - Create transaction
 - `GET /api/v1/transactions/{id}` - Get transaction details
 - `PATCH /api/v1/transactions/{id}` - Update transaction
 - `DELETE /api/v1/transactions/{id}` - Delete transaction
 
-### Reports
+#### Reports
 - `GET /api/v1/reports/spending-by-category` - Spending analysis
 - `GET /api/v1/reports/monthly-summary` - Monthly financial summary
 
-### Currencies
+#### Currencies
 - `GET /api/v1/currencies/rates` - Get exchange rates
 - `GET /api/v1/currencies/convert` - Convert currency
 
 **📚 Full documentation with examples**: Visit `/swagger/index.html` after starting the server
+
+### gRPC API (port 50051)
+
+Mobile API using Protocol Buffers. Proto definitions in `proto/`.
+
+#### AccountService
+- `ListAccounts` - List all accounts with balances for authenticated family
+
+#### TransactionService
+- `ListTransactions` - List transactions with filtering and pagination
+    - Filters: `type` (income/expense), `account_id`, `month` (YYYY-MM)
+    - Pagination: `page`, `per_page`
+
+**Authentication**: JWT token via gRPC metadata header `authorization: Bearer <token>`
+
+**Testing with grpcurl** (from project root):
+```bash
+# Get JWT token first
+curl -s -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@example.com","password":"Demo123!"}' | jq .data.token
+
+# List accounts
+grpcurl -plaintext \
+  -proto proto/accounts.proto \
+  -H "authorization: Bearer <token>" \
+  localhost:50051 expense_tracker.v1.AccountService/ListAccounts
+
+# List transactions with filters
+grpcurl -plaintext \
+  -proto proto/transactions.proto \
+  -H "authorization: Bearer <token>" \
+  -d '{"month": "2025-12", "page": 1, "per_page": 20}' \
+  localhost:50051 expense_tracker.v1.TransactionService/ListTransactions
+```
 
 ## 🎨 Demo
 
@@ -165,6 +205,9 @@ expense-tracker/
 │   │   ├── swagger.json   # OpenAPI 2.0 spec
 │   │   └── swagger.yaml   # OpenAPI 2.0 spec (YAML)
 │   └── *_SUMMARY.md       # Development stage summaries
+├── proto/                  # Protocol Buffer definitions
+│   ├── accounts.proto      # AccountService (ListAccounts)
+│   └── transactions.proto  # TransactionService (ListTransactions)
 ├── database/
 │   └── migrations/        # SQL migration files
 ├── cmd/
@@ -179,6 +222,11 @@ expense-tracker/
 │   │   ├── queries/      # SQL queries for sqlc
 │   │   └── sqlc/         # Generated type-safe code
 │   ├── dto/              # Data transfer objects (with Swagger tags)
+│   ├── grpc/             # gRPC server
+│   │   ├── pb/           # Generated protobuf Go code
+│   │   ├── handlers/     # gRPC service implementations
+│   │   ├── interceptors/ # Auth and logging interceptors
+│   │   └── server.go     # gRPC server setup
 │   └── repository/       # Business logic layer
 ├── frontend/             # Vue.js 3 application
 │   ├── src/
@@ -195,6 +243,8 @@ expense-tracker/
 │   │   └── views/       # Page components
 │   ├── public/
 │   └── package.json
+├── buf.yaml              # buf lint configuration
+├── buf.gen.yaml          # buf code generation configuration
 ├── .env                  # Environment variables
 ├── go.mod               # Go module definition
 └── sqlc.yaml            # sqlc configuration
@@ -246,14 +296,22 @@ expense-tracker/
 - [ ] Performance optimization
 - [ ] Security audit
 
-### Phase 6: Deployment 📋
+### Phase 6: gRPC API ✅
+- [x] Protocol Buffer definitions (accounts, transactions)
+- [x] Code generation with buf + protoc
+- [x] gRPC server with dual-protocol architecture (REST :8080 + gRPC :50051)
+- [x] JWT auth interceptor (reuses existing JWT service)
+- [x] Logging interceptor
+- [x] AccountService.ListAccounts
+- [x] TransactionService.ListTransactions (with filters and pagination)
+- [x] Tested with grpcurl
+
+### Phase 7: Deployment 📋
 - [ ] Docker containerization
 - [ ] CI/CD pipeline
 - [ ] Production deployment
 - [ ] Monitoring and logging
 - [ ] Backup strategy
-
-
 
 ## 📄 License
 
@@ -261,7 +319,7 @@ This project is licensed under the **MIT License**.
 See the [`LICENSE`](LICENSE) file for details.
 
 ## 👤 Author
-**Igor Kudinov**  
+**Igor Kudinov**
 
 This project is part of my professional portfolio demonstrating:
 - Requirements analysis and documentation
@@ -271,6 +329,9 @@ This project is part of my professional portfolio demonstrating:
 - OpenAPI/Swagger documentation
 - Type-safe code generation (sqlc)
 - Frontend development (Vue.js 3)
+- **gRPC API design and implementation**
+- **Dual-protocol architecture (REST + gRPC)**
+- **Protocol Buffers and code generation**
 - Full-stack application architecture
 - DevOps and deployment
 
@@ -278,4 +339,5 @@ This project is part of my professional portfolio demonstrating:
 
 - [GitHub Repository](https://github.com/DigitLock/expense-tracker)
 - Portfolio: [portfolio.digitlock.systems](https://portfolio.digitlock.systems)
-- API Documentation: Available at `/swagger/index.html` when running
+- REST API Documentation: Available at `/swagger/index.html` when running
+- gRPC: port `50051` (proto files in `proto/`)

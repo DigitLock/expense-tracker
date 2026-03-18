@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package expense_tracker.v1;
+
+option go_package = "github.com/DigitLock/expense-tracker/internal/grpc/pb";
+
+import "google/protobuf/timestamp.proto";
+
+service AccountService {
+  rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse);
+}
+
+message ListAccountsRequest {}
+
+message Account {
+  string id          = 1;
+  string name        = 2;
+  string type        = 3;
+  string currency    = 4;
+  double balance     = 5;
+  string description = 6;
+  bool   is_active   = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message ListAccountsResponse {
+  repeated Account accounts = 1;
+  int32            total    = 2;
+}

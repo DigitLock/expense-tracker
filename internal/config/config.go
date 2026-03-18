@@ -26,10 +26,11 @@ type DatabaseConfig struct {
 
 type ServerConfig struct {
 	Port            int
+	GRPCPort        int
 	AllowedOrigins  []string
-	ReadTimeout     int // seconds
-	WriteTimeout    int // seconds
-	ShutdownTimeout int // seconds
+	ReadTimeout     int
+	WriteTimeout    int
+	ShutdownTimeout int
 }
 
 type JWTConfig struct {
@@ -58,6 +59,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid SERVER_PORT: %w", err)
 	}
 
+	grpcPort, err := strconv.Atoi(getEnv("GRPC_PORT", "50051"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid GRPC_PORT: %w", err)
+	}
+
 	jwtExpiration, err := strconv.Atoi(getEnv("JWT_EXPIRATION_HOURS", "24"))
 	if err != nil {
 		return nil, fmt.Errorf("invalid JWT_EXPIRATION_HOURS: %w", err)
@@ -81,6 +87,7 @@ func Load() (*Config, error) {
 		},
 		Server: ServerConfig{
 			Port:            serverPort,
+			GRPCPort:        grpcPort,
 			AllowedOrigins:  origins,
 			ReadTimeout:     15,
 			WriteTimeout:    15,
