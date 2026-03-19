@@ -31,7 +31,7 @@ Personal and family finance management system with multi-currency support and au
 ## 🏗️ Tech Stack
 
 ### Backend
-- **Language**: Go 1.23+
+- **Language**: Go 1.25+
 - **Router**: Chi v5
 - **Database**: PostgreSQL 16
 - **Query Builder**: sqlc (type-safe SQL)
@@ -56,6 +56,8 @@ Located in `Documentation/`:
 
 - [`expense_tracker_brd.md`](Documentation/expense_tracker_brd.md) – Business Requirements Document
 - [`expense_tracker_srs_mvp.md`](Documentation/expense_tracker_srs_mvp.md) – System Requirements (MVP)
+- [`expense_tracker_tdd_grpc_integration.md`](Documentation/expense_tracker_tdd_grpc_integration.md) – Technical Design Document: gRPC Integration (Stage 6)
+- [`expense_tracker_fs_flutter_mobile_client.md`](Documentation/expense_tracker_fs_flutter_mobile_client.md) – Functional Specification: Flutter Mobile Client (v0.4.0)
 - PDF exports available in `Documentation/PDF/`
 
 ### API Documentation
@@ -187,11 +189,18 @@ grpcurl -plaintext \
 
 ## 🎨 Demo
 
-⚠️ **Demo Environment Status**: QA Testing in progress
+**Demo environment** (Hetzner VPS):
 
-**Testing environment**: `https://api.test.expensetracker.digitlock.systems`
+| Service | URL |
+|---------|-----|
+| Web Frontend | [`https://demo-expensetracker.digitlock.systems`](https://demo-expensetracker.digitlock.systems) |
+| REST API | [`https://api-demo-expensetracker.digitlock.systems`](https://api-demo-expensetracker.digitlock.systems) |
+| REST API (direct) | `46.224.29.194:8081` |
+| gRPC API | `46.224.29.194:50051` (plaintext) |
 
-**Note**: The application is currently undergoing quality assurance testing. Minor bugs and UI improvements are being addressed.
+**Demo credentials**: `demo@example.com` / `Demo123!`
+
+**Note**: gRPC is accessible via direct IP only — Cloudflare free plan does not proxy gRPC traffic.
 
 ## 📋 Project Structure
 

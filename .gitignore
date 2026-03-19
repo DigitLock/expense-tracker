@@ -71,6 +71,3 @@ coverage/
 
 # Docker
 docker-compose.override.yml
-
-# Generated protobuf code
-internal/grpc/pb/!internal/grpc/pb/
