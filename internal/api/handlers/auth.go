@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 
@@ -130,6 +131,11 @@ func formatValidationMessage(e validator.FieldError) string {
 		return "Value is too short"
 	case "max":
 		return "Value is too long"
+	case "oneof":
+		// e.Param() is the space-separated allowlist from the struct tag
+		// (e.g., "RSD EUR"). Surface it so the client knows what's accepted.
+		allowed := strings.ReplaceAll(e.Param(), " ", ", ")
+		return "Must be one of: " + allowed
 	default:
 		return "Invalid value"
 	}

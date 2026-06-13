@@ -123,6 +123,12 @@ func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+		// Enforce 2-level maximum hierarchy: parent must itself be a root category
+		if parent.ParentID.Valid {
+			writeError(w, http.StatusBadRequest, "HIERARCHY_LIMIT_EXCEEDED",
+				"Cannot create subcategory of a subcategory. Maximum 2 levels of hierarchy allowed (parent → child).")
+			return
+		}
 	}
 
 	// Checking for inactive duplicate BEFORE creating
@@ -292,6 +298,24 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+		// Enforce 2-level maximum hierarchy: parent must itself be a root category
+		if parent.ParentID.Valid {
+			writeError(w, http.StatusBadRequest, "HIERARCHY_LIMIT_EXCEEDED",
+				"Cannot create subcategory of a subcategory. Maximum 2 levels of hierarchy allowed (parent → child).")
+			return
+		}
+		// If this category has children, moving it under a parent would create
+		// a 3rd level for those children. Block it.
+		hasChildren, err := h.categoryRepo.HasChildren(r.Context(), categoryID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to validate category hierarchy")
+			return
+		}
+		if hasChildren {
+			writeError(w, http.StatusBadRequest, "HIERARCHY_LIMIT_EXCEEDED",
+				"Cannot move a parent category under another category. Maximum 2 levels of hierarchy allowed (parent → child).")
+			return
+		}
 	}
 
 	// Updated input
@@ -352,6 +376,19 @@ func (h *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 	if existing.FamilyID != familyID {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found")
+		return
+	}
+
+	// Block deletion if the category has ANY transactions (active or inactive).
+	// Prevents orphaned transaction records that would display as "Unknown" category.
+	hasTx, err := h.categoryRepo.HasTransactions(r.Context(), categoryID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to check category transactions")
+		return
+	}
+	if hasTx {
+		writeError(w, http.StatusBadRequest, "CATEGORY_HAS_TRANSACTIONS",
+			"Cannot delete category with existing transactions. Reassign transactions first.")
 		return
 	}
 

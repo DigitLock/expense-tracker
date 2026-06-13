@@ -103,15 +103,20 @@ func (r *TransactionRepository) Create(ctx context.Context, input CreateTransact
 		return sqlc.Transaction{}, fmt.Errorf("failed to set audit user: %w", err)
 	}
 
-	// Calculate amount_base (convert to base currency if needed)
+	// Calculate amount_base for cross-currency reporting.
+	// amount_base converts to base currency (RSD); it does NOT affect
+	// account balance (which uses amount in the account's native currency).
 	amountBase := input.Amount
 	if input.Currency != "RSD" {
-		// Get exchange rate
 		rate, err := r.getExchangeRate(ctx, tx, input.Currency, "RSD", input.TransactionDate)
 		if err != nil {
-			return sqlc.Transaction{}, fmt.Errorf("failed to get exchange rate: %w", err)
+			// Exchange rate unavailable — use amount as fallback (1:1).
+			// Reports may be inaccurate until rates are populated.
+			log.Printf("WARN: exchange rate %s→RSD unavailable for %s, using amount as amount_base fallback",
+				input.Currency, input.TransactionDate.Format("2006-01-02"))
+		} else {
+			amountBase = input.Amount.Mul(rate)
 		}
-		amountBase = input.Amount.Mul(rate)
 	}
 
 	// Create transaction using queries with tx
@@ -187,14 +192,16 @@ func (r *TransactionRepository) Update(ctx context.Context, input UpdateTransact
 		return sqlc.Transaction{}, fmt.Errorf("failed to set audit user: %w", err)
 	}
 
-	// Calculate amount_base
+	// Calculate amount_base for cross-currency reporting (same logic as Create).
 	amountBase := input.Amount
 	if input.Currency != "RSD" {
 		rate, err := r.getExchangeRate(ctx, tx, input.Currency, "RSD", input.TransactionDate)
 		if err != nil {
-			return sqlc.Transaction{}, fmt.Errorf("failed to get exchange rate: %w", err)
+			log.Printf("WARN: exchange rate %s→RSD unavailable for %s, using amount as amount_base fallback",
+				input.Currency, input.TransactionDate.Format("2006-01-02"))
+		} else {
+			amountBase = input.Amount.Mul(rate)
 		}
-		amountBase = input.Amount.Mul(rate)
 	}
 
 	qtx := sqlc.New(tx)

@@ -13,6 +13,36 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+const countTransactionsByAccount = `-- name: CountTransactionsByAccount :one
+SELECT COUNT(*) as total
+FROM transactions
+WHERE account_id = $1
+`
+
+// Counts ALL transactions (active and inactive) for an account.
+// Used to prevent deletion of accounts that have transaction history.
+func (q *Queries) CountTransactionsByAccount(ctx context.Context, accountID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countTransactionsByAccount, accountID)
+	var total int64
+	err := row.Scan(&total)
+	return total, err
+}
+
+const countTransactionsByCategory = `-- name: CountTransactionsByCategory :one
+SELECT COUNT(*) as total
+FROM transactions
+WHERE category_id = $1
+`
+
+// Counts ALL transactions (active and inactive) for a category.
+// Used to prevent deletion of categories that have transaction history.
+func (q *Queries) CountTransactionsByCategory(ctx context.Context, categoryID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countTransactionsByCategory, categoryID)
+	var total int64
+	err := row.Scan(&total)
+	return total, err
+}
+
 const countTransactionsByFamily = `-- name: CountTransactionsByFamily :one
 SELECT COUNT(*) as total
 FROM transactions

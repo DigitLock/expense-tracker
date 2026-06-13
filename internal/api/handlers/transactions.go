@@ -177,6 +177,14 @@ func (h *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Transaction currency must match account currency
+	if req.Currency != account.Currency {
+		writeValidationError(w, []dto.ValidationError{
+			{Field: "currency", Message: "Transaction currency must match account currency (" + account.Currency + ")"},
+		})
+		return
+	}
+
 	// Validate category belongs to family and matches type
 	category, err := h.categoryRepo.GetByID(r.Context(), req.CategoryID)
 	if err != nil || category.FamilyID != familyID {
@@ -334,6 +342,18 @@ func (h *TransactionHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	currency := existing.Currency
 	if req.Currency != nil {
+		// Validate currency matches the transaction's account
+		account, err := h.accountRepo.GetByID(r.Context(), existing.AccountID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to validate account currency")
+			return
+		}
+		if *req.Currency != account.Currency {
+			writeValidationError(w, []dto.ValidationError{
+				{Field: "currency", Message: "Transaction currency must match account currency (" + account.Currency + ")"},
+			})
+			return
+		}
 		currency = *req.Currency
 	}
 
