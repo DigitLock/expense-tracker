@@ -41,7 +41,7 @@ func NewServer(repos *repository.Repositories, jwtService *auth.JWTService, port
 func (s *Server) Start() error {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
 	if err != nil {
-		return fmt.Errorf("failed to listen on port %d: %w", err)
+		return fmt.Errorf("failed to listen on port %d: %w", s.port, err)
 	}
 	return s.grpcServer.Serve(lis)
 }
