@@ -192,10 +192,10 @@ export interface TransactionFilters {
 export interface SpendingByCategory {
   category_id: string
   category_name: string
-  parent_category: string | null
   total_amount: string
   transaction_count: number
   percentage: string
+  average_per_transaction: string
 }
 
 export interface SpendingByCategoryReport {
@@ -205,8 +205,11 @@ export interface SpendingByCategoryReport {
     end_date: string
   }
   currency: Currency
-  total_spending: string
-  categories: SpendingByCategory[]
+  transaction_type: string
+  spending_by_category: SpendingByCategory[]
+  total_amount: string
+  total_transactions: number
+  generated_at: string
 }
 
 export interface MonthlySummary {

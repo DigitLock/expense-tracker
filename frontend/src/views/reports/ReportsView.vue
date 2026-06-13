@@ -132,7 +132,7 @@ function formatPercent(value: string): string {
 
         <div class="space-y-3">
           <div
-            v-for="category in spendingReport?.categories"
+            v-for="category in spendingReport?.spending_by_category"
             :key="category.category_id"
             class="flex items-center gap-4"
           >
@@ -154,7 +154,7 @@ function formatPercent(value: string): string {
           </div>
 
           <div
-            v-if="!spendingReport?.categories?.length"
+            v-if="!spendingReport?.spending_by_category?.length"
             class="text-center text-gray-500 py-4"
           >
             No spending data for this period
