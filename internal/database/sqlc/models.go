@@ -155,6 +155,8 @@ type User struct {
 	LastLoginAt pgtype.Timestamp `json:"last_login_at"`
 	// Soft delete flag. true = active user, false = deleted/blocked user (data preserved for audit)
 	IsActive bool `json:"is_active"`
+	// User role within the family. owner = created the family (full control), member = invited user.
+	Role string `json:"role"`
 }
 
 // Convenient view of audit log with joined family and user names

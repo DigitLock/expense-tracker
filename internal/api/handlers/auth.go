@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -84,6 +85,75 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeSuccess(w, http.StatusOK, response)
+}
+
+// Register godoc
+// @Summary      User registration
+// @Description  Self-register a new user. Creates a new family with the user as its owner, seeds default categories, and returns a JWT token (auto-login).
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.RegisterRequest true "Registration data"
+// @Success      201 {object} dto.SuccessResponse{data=dto.LoginResponse} "Registration successful"
+// @Failure      400 {object} dto.ErrorResponse "Invalid request body or validation error"
+// @Failure      409 {object} dto.ErrorResponse "Email already registered"
+// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Router       /auth/register [post]
+func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+	var req dto.RegisterRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_JSON", "Invalid request body")
+		return
+	}
+
+	if err := h.validate.Struct(req); err != nil {
+		validationErrors := formatValidationErrors(err)
+		writeValidationError(w, validationErrors)
+		return
+	}
+
+	// Default family name when not provided
+	familyName := req.FamilyName
+	if strings.TrimSpace(familyName) == "" {
+		familyName = fmt.Sprintf("%s's family", req.Name)
+	}
+
+	user, err := h.userRepo.Register(r.Context(), repository.RegisterInput{
+		Email:      req.Email,
+		Password:   req.Password,
+		Name:       req.Name,
+		FamilyName: familyName,
+	})
+	if err != nil {
+		if errors.Is(err, repository.ErrEmailExists) {
+			writeError(w, http.StatusConflict, "EMAIL_ALREADY_EXISTS", "A user with this email already exists")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "REGISTRATION_FAILED", "Failed to register user")
+		return
+	}
+
+	// Auto-login: generate JWT token (role is not part of the token claims)
+	token, _, err := h.jwtService.GenerateToken(user.ID, user.FamilyID, user.Email, user.Name)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "TOKEN_ERROR", "Failed to generate token")
+		return
+	}
+
+	response := dto.LoginResponse{
+		Token: token,
+		User: dto.UserInfo{
+			ID:       user.ID,
+			Email:    user.Email,
+			Name:     user.Name,
+			FamilyID: user.FamilyID,
+			Role:     user.Role,
+		},
+		ExpiresIn: h.jwtService.GetExpirationSeconds(),
+	}
+
+	writeSuccess(w, http.StatusCreated, response)
 }
 
 // Helper functions

@@ -68,6 +68,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, repos *repository.Repositor
 		// Public routes (no auth)
 		r.Group(func(r chi.Router) {
 			r.Post("/auth/login", authHandler.Login)
+			r.Post("/auth/register", authHandler.Register)
 		})
 
 		// Protected routes (require JWT)

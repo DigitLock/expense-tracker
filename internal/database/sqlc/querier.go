@@ -69,6 +69,9 @@ type Querier interface {
 	ListUsersByFamily(ctx context.Context, familyID uuid.UUID) ([]User, error)
 	// Reactivate a soft-deleted category
 	RestoreCategory(ctx context.Context, id uuid.UUID) (Category, error)
+	// Seeds the standard income/expense category tree for a new family.
+	// Delegates to the create_default_categories() DB function (migration 009).
+	SeedDefaultCategories(ctx context.Context, pFamilyID uuid.UUID) error
 	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error)
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
 	UpdateFamily(ctx context.Context, arg UpdateFamilyParams) (Family, error)

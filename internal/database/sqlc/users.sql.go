@@ -13,11 +13,11 @@ import (
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (
-    id, family_id, email, name, password_hash
+    id, family_id, email, name, password_hash, role
 ) VALUES (
-             $1, $2, $3, $4, $5
+             $1, $2, $3, $4, $5, $6
          )
-RETURNING id, family_id, email, password_hash, name, created_at, updated_at, last_login_at, is_active
+RETURNING id, family_id, email, password_hash, name, created_at, updated_at, last_login_at, is_active, role
 `
 
 type CreateUserParams struct {
@@ -26,6 +26,7 @@ type CreateUserParams struct {
 	Email        string    `json:"email"`
 	Name         string    `json:"name"`
 	PasswordHash string    `json:"password_hash"`
+	Role         string    `json:"role"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -35,6 +36,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.Email,
 		arg.Name,
 		arg.PasswordHash,
+		arg.Role,
 	)
 	var i User
 	err := row.Scan(
@@ -47,6 +49,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.UpdatedAt,
 		&i.LastLoginAt,
 		&i.IsActive,
+		&i.Role,
 	)
 	return i, err
 }
@@ -63,7 +66,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, family_id, email, password_hash, name, created_at, updated_at, last_login_at, is_active FROM users
+SELECT id, family_id, email, password_hash, name, created_at, updated_at, last_login_at, is_active, role FROM users
 WHERE id = $1 AND is_active = true
 `
 
@@ -80,12 +83,13 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.UpdatedAt,
 		&i.LastLoginAt,
 		&i.IsActive,
+		&i.Role,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, family_id, email, password_hash, name, created_at, updated_at, last_login_at, is_active FROM users
+SELECT id, family_id, email, password_hash, name, created_at, updated_at, last_login_at, is_active, role FROM users
 WHERE email = $1 AND is_active = true
 `
 
@@ -102,12 +106,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.UpdatedAt,
 		&i.LastLoginAt,
 		&i.IsActive,
+		&i.Role,
 	)
 	return i, err
 }
 
 const listUsersByFamily = `-- name: ListUsersByFamily :many
-SELECT id, family_id, email, password_hash, name, created_at, updated_at, last_login_at, is_active FROM users
+SELECT id, family_id, email, password_hash, name, created_at, updated_at, last_login_at, is_active, role FROM users
 WHERE family_id = $1 AND is_active = true
 ORDER BY name
 `
@@ -131,6 +136,7 @@ func (q *Queries) ListUsersByFamily(ctx context.Context, familyID uuid.UUID) ([]
 			&i.UpdatedAt,
 			&i.LastLoginAt,
 			&i.IsActive,
+			&i.Role,
 		); err != nil {
 			return nil, err
 		}
@@ -149,7 +155,7 @@ SET
     email = $3,
     updated_at = NOW()
 WHERE id = $1 AND is_active = true
-RETURNING id, family_id, email, password_hash, name, created_at, updated_at, last_login_at, is_active
+RETURNING id, family_id, email, password_hash, name, created_at, updated_at, last_login_at, is_active, role
 `
 
 type UpdateUserParams struct {
@@ -171,6 +177,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.UpdatedAt,
 		&i.LastLoginAt,
 		&i.IsActive,
+		&i.Role,
 	)
 	return i, err
 }
