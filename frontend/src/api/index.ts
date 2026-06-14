@@ -3,6 +3,7 @@ import type {
   ApiResponse,
   LoginRequest,
   LoginResponse,
+  RegisterRequest,
   Account,
   CreateAccountRequest,
   UpdateAccountRequest,
@@ -28,6 +29,11 @@ import type {
 export const authApi = {
   login: async (data: LoginRequest): Promise<ApiResponse<LoginResponse>> => {
     const response = await apiClient.post<ApiResponse<LoginResponse>>('/auth/login', data)
+    return response.data
+  },
+
+  register: async (data: RegisterRequest): Promise<ApiResponse<LoginResponse>> => {
+    const response = await apiClient.post<ApiResponse<LoginResponse>>('/auth/register', data)
     return response.data
   },
 }
@@ -158,17 +164,22 @@ export const transactionsApi = {
 export const reportsApi = {
   spendingByCategory: async (
     startDate: string,
-    endDate: string
+    endDate: string,
+    type?: 'income' | 'expense',
+    currency?: string
   ): Promise<ApiResponse<SpendingByCategoryReport>> => {
     const response = await apiClient.get<ApiResponse<SpendingByCategoryReport>>(
       '/reports/spending-by-category',
-      { params: { start_date: startDate, end_date: endDate } }
+      { params: { start_date: startDate, end_date: endDate, type, currency } }
     )
     return response.data
   },
 
-  monthlySummary: async (month?: string): Promise<ApiResponse<MonthlySummaryReport>> => {
-    const params = month ? { month } : {}
+  monthlySummary: async (
+    month?: string,
+    currency?: string
+  ): Promise<ApiResponse<MonthlySummaryReport>> => {
+    const params = { month, currency }
     const response = await apiClient.get<ApiResponse<MonthlySummaryReport>>(
       '/reports/monthly-summary',
       { params }

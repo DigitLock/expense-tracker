@@ -58,6 +58,15 @@ func (r *CategoryRepository) ListChildCategories(ctx context.Context, parentID u
 	return r.queries.ListChildCategories(ctx, pgtype.UUID{Bytes: parentID, Valid: true})
 }
 
+// HasChildren returns true if the category has any (active) child categories
+func (r *CategoryRepository) HasChildren(ctx context.Context, parentID uuid.UUID) (bool, error) {
+	children, err := r.queries.ListChildCategories(ctx, pgtype.UUID{Bytes: parentID, Valid: true})
+	if err != nil {
+		return false, err
+	}
+	return len(children) > 0, nil
+}
+
 // CreateCategoryInput contains data for creating a new category
 type CreateCategoryInput struct {
 	FamilyID uuid.UUID
@@ -130,6 +139,16 @@ func (r *CategoryRepository) Update(ctx context.Context, input UpdateCategoryInp
 // Delete soft-deletes a category
 func (r *CategoryRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.queries.DeleteCategory(ctx, id)
+}
+
+// HasTransactions returns true if the category has ANY transactions
+// (active or inactive). Used to block deletion of categories with history.
+func (r *CategoryRepository) HasTransactions(ctx context.Context, id uuid.UUID) (bool, error) {
+	count, err := r.queries.CountTransactionsByCategory(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 // FindInactiveByName finds an inactive category with matching parameters

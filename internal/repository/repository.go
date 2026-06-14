@@ -25,7 +25,7 @@ func New(pool *pgxpool.Pool) *Repositories {
 
 	return &Repositories{
 		Families:      NewFamilyRepository(queries),
-		Users:         NewUserRepository(queries),
+		Users:         NewUserRepository(queries, pool),
 		Accounts:      NewAccountRepository(queries),
 		Categories:    NewCategoryRepository(queries),
 		Transactions:  NewTransactionRepository(queries, pool),

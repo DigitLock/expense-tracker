@@ -364,6 +364,17 @@ func (q *Queries) RestoreCategory(ctx context.Context, id uuid.UUID) (Category, 
 	return i, err
 }
 
+const seedDefaultCategories = `-- name: SeedDefaultCategories :exec
+SELECT create_default_categories($1)
+`
+
+// Seeds the standard income/expense category tree for a new family.
+// Delegates to the create_default_categories() DB function (migration 009).
+func (q *Queries) SeedDefaultCategories(ctx context.Context, pFamilyID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, seedDefaultCategories, pFamilyID)
+	return err
+}
+
 const updateCategory = `-- name: UpdateCategory :one
 UPDATE categories
 SET

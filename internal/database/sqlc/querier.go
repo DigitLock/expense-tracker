@@ -12,6 +12,12 @@ import (
 )
 
 type Querier interface {
+	// Counts ALL transactions (active and inactive) for an account.
+	// Used to prevent deletion of accounts that have transaction history.
+	CountTransactionsByAccount(ctx context.Context, accountID uuid.UUID) (int64, error)
+	// Counts ALL transactions (active and inactive) for a category.
+	// Used to prevent deletion of categories that have transaction history.
+	CountTransactionsByCategory(ctx context.Context, categoryID uuid.UUID) (int64, error)
 	CountTransactionsByFamily(ctx context.Context, familyID uuid.UUID) (int64, error)
 	CountTransactionsFiltered(ctx context.Context, arg CountTransactionsFilteredParams) (int64, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
@@ -63,6 +69,9 @@ type Querier interface {
 	ListUsersByFamily(ctx context.Context, familyID uuid.UUID) ([]User, error)
 	// Reactivate a soft-deleted category
 	RestoreCategory(ctx context.Context, id uuid.UUID) (Category, error)
+	// Seeds the standard income/expense category tree for a new family.
+	// Delegates to the create_default_categories() DB function (migration 009).
+	SeedDefaultCategories(ctx context.Context, pFamilyID uuid.UUID) error
 	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error)
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
 	UpdateFamily(ctx context.Context, arg UpdateFamilyParams) (Family, error)

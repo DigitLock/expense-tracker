@@ -2,7 +2,13 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api'
 import { config } from '@/config'
-import type { User, LoginRequest } from '@/types'
+import type { User, LoginRequest, RegisterRequest, ValidationError } from '@/types'
+
+// Result of a register attempt. On failure it carries the server's field-level
+// validation details and error code so the view can map them onto inputs.
+export type RegisterResult =
+  | { ok: true }
+  | { ok: false; message: string; code?: string; fieldErrors: ValidationError[] }
 
 export const useAuthStore = defineStore('auth', () => {
   // State
@@ -40,6 +46,40 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (err: any) {
       error.value = err.response?.data?.error?.message || 'Login failed. Please try again.'
       return false
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function register(payload: RegisterRequest): Promise<RegisterResult> {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await authApi.register(payload)
+
+      if (response.success) {
+        token.value = response.data.token
+        user.value = response.data.user
+
+        // Persist to localStorage (same as login)
+        localStorage.setItem(config.auth.tokenKey, response.data.token)
+        localStorage.setItem(config.auth.userKey, JSON.stringify(response.data.user))
+
+        return { ok: true }
+      }
+
+      return { ok: false, message: 'Registration failed. Please try again.', fieldErrors: [] }
+    } catch (err: any) {
+      const apiError = err.response?.data?.error
+      const message = apiError?.message || 'Registration failed. Please try again.'
+      error.value = message
+      return {
+        ok: false,
+        message,
+        code: apiError?.code,
+        fieldErrors: apiError?.details ?? [],
+      }
     } finally {
       loading.value = false
     }
@@ -85,6 +125,7 @@ export const useAuthStore = defineStore('auth', () => {
     familyId,
     // Actions
     login,
+    register,
     logout,
     initialize,
     clearError,

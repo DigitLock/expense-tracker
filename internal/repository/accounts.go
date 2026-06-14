@@ -119,6 +119,16 @@ func (r *AccountRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.queries.DeleteAccount(ctx, id)
 }
 
+// HasTransactions returns true if the account has ANY transactions
+// (active or inactive). Used to block deletion of accounts with history.
+func (r *AccountRepository) HasTransactions(ctx context.Context, id uuid.UUID) (bool, error) {
+	count, err := r.queries.CountTransactionsByAccount(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // GetBalance retrieves current balance and currency
 func (r *AccountRepository) GetBalance(ctx context.Context, id uuid.UUID) (decimal.Decimal, string, error) {
 	result, err := r.queries.GetAccountBalance(ctx, id)

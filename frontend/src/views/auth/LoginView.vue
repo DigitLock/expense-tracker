@@ -114,6 +114,14 @@ async function handleSubmit() {
       </button>
     </form>
 
+    <!-- Link to register -->
+    <p class="mt-6 text-center text-sm text-gray-600">
+      Don't have an account?
+      <RouterLink to="/register" class="font-medium text-blue-600 hover:text-blue-700">
+        Sign up
+      </RouterLink>
+    </p>
+
     <!-- Demo credentials -->
     <div class="mt-6 p-4 bg-gray-50 rounded-lg">
       <p class="text-xs text-gray-500 font-medium mb-2">Demo credentials:</p>

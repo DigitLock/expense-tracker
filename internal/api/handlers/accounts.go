@@ -23,7 +23,7 @@ type AccountHandler struct {
 func NewAccountHandler(accountRepo *repository.AccountRepository) *AccountHandler {
 	return &AccountHandler{
 		accountRepo: accountRepo,
-		validate:    validator.New(),
+		validate:    newValidator(),
 	}
 }
 
@@ -278,6 +278,19 @@ func (h *AccountHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 	if existing.FamilyID != familyID {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "Account not found")
+		return
+	}
+
+	// Block deletion if the account has ANY transactions (active or inactive).
+	// Prevents orphaned transaction records and accidental data loss.
+	hasTx, err := h.accountRepo.HasTransactions(r.Context(), accountID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to check account transactions")
+		return
+	}
+	if hasTx {
+		writeError(w, http.StatusBadRequest, "ACCOUNT_HAS_TRANSACTIONS",
+			"Cannot delete account with existing transactions. Delete or move transactions first.")
 		return
 	}
 

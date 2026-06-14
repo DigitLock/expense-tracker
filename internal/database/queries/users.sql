@@ -13,9 +13,9 @@ ORDER BY name;
 
 -- name: CreateUser :one
 INSERT INTO users (
-    id, family_id, email, name, password_hash
+    id, family_id, email, name, password_hash, role
 ) VALUES (
-             $1, $2, $3, $4, $5
+             $1, $2, $3, $4, $5, $6
          )
 RETURNING *;
 

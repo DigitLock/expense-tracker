@@ -45,6 +45,13 @@ export interface LoginRequest {
   password: string
 }
 
+export interface RegisterRequest {
+  email: string
+  password: string
+  name: string
+  family_name?: string
+}
+
 export interface LoginResponse {
   token: string
   user: User
@@ -56,6 +63,7 @@ export interface User {
   email: string
   name: string
   family_id: string
+  role?: string
 }
 
 // ============================================
@@ -192,10 +200,10 @@ export interface TransactionFilters {
 export interface SpendingByCategory {
   category_id: string
   category_name: string
-  parent_category: string | null
   total_amount: string
   transaction_count: number
   percentage: string
+  average_per_transaction: string
 }
 
 export interface SpendingByCategoryReport {
@@ -205,8 +213,12 @@ export interface SpendingByCategoryReport {
     end_date: string
   }
   currency: Currency
-  total_spending: string
-  categories: SpendingByCategory[]
+  transaction_type: string
+  spending_by_category: SpendingByCategory[]
+  total_amount: string
+  total_transactions: number
+  generated_at: string
+  currency_note?: string
 }
 
 export interface MonthlySummary {
@@ -227,6 +239,7 @@ export interface MonthlySummaryReport {
     accounts: Record<string, string>
     total: string
   }
+  currency_note?: string
 }
 
 // ============================================

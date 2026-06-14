@@ -31,6 +31,11 @@ SELECT * FROM categories
 WHERE parent_id = $1 AND is_active = true
 ORDER BY name;
 
+-- name: SeedDefaultCategories :exec
+-- Seeds the standard income/expense category tree for a new family.
+-- Delegates to the create_default_categories() DB function (migration 009).
+SELECT create_default_categories($1);
+
 -- name: CreateCategory :one
 INSERT INTO categories (
     id, family_id, name, type, parent_id
