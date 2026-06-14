@@ -23,7 +23,7 @@ type AccountHandler struct {
 func NewAccountHandler(accountRepo *repository.AccountRepository) *AccountHandler {
 	return &AccountHandler{
 		accountRepo: accountRepo,
-		validate:    validator.New(),
+		validate:    newValidator(),
 	}
 }
 

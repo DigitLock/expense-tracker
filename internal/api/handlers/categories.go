@@ -22,7 +22,7 @@ type CategoryHandler struct {
 func NewCategoryHandler(categoryRepo *repository.CategoryRepository) *CategoryHandler {
 	return &CategoryHandler{
 		categoryRepo: categoryRepo,
-		validate:     validator.New(),
+		validate:     newValidator(),
 	}
 }
 

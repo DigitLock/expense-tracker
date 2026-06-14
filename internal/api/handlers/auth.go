@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -24,7 +25,7 @@ func NewAuthHandler(userRepo *repository.UserRepository, jwtService *auth.JWTSer
 	return &AuthHandler{
 		userRepo:   userRepo,
 		jwtService: jwtService,
-		validate:   validator.New(),
+		validate:   newValidator(),
 	}
 }
 
@@ -173,6 +174,21 @@ func writeValidationError(w http.ResponseWriter, details []dto.ValidationError) 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusBadRequest)
 	_ = json.NewEncoder(w).Encode(dto.NewErrorResponse("VALIDATION_ERROR", "Invalid input", details))
+}
+
+// newValidator builds a validator whose field names come from the json tag,
+// so validation error details report json names (e.g. "family_name") rather
+// than Go struct field names. Used by all handlers for consistent error output.
+func newValidator() *validator.Validate {
+	v := validator.New()
+	v.RegisterTagNameFunc(func(fld reflect.StructField) string {
+		name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
+		if name == "-" {
+			return ""
+		}
+		return name
+	})
+	return v
 }
 
 func formatValidationErrors(err error) []dto.ValidationError {

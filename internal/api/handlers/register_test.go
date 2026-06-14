@@ -115,7 +115,19 @@ func TestAuthHandler_Register_ValidationError(t *testing.T) {
 		t.Errorf("error.code = %q, want \"VALIDATION_ERROR\"", resp.Error.Code)
 	}
 	if len(resp.Error.Details) == 0 {
-		t.Error("error.details is empty, want field-level validation errors")
+		t.Fatal("error.details is empty, want field-level validation errors")
+	}
+
+	// Field names are reported as json names (RegisterTagNameFunc), not Go
+	// struct field names: "password"/"name", not "Password"/"Name".
+	fields := map[string]bool{}
+	for _, d := range resp.Error.Details {
+		fields[d.Field] = true
+	}
+	for _, want := range []string{"password", "name"} {
+		if !fields[want] {
+			t.Errorf("validation details missing field %q; got fields %v", want, fields)
+		}
 	}
 }
 

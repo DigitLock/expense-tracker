@@ -35,7 +35,7 @@ func NewTransactionHandler(
 		accountRepo:     accountRepo,
 		categoryRepo:    categoryRepo,
 		userRepo:        userRepo,
-		validate:        validator.New(),
+		validate:        newValidator(),
 	}
 }
 
