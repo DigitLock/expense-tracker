@@ -45,6 +45,13 @@ export interface LoginRequest {
   password: string
 }
 
+export interface RegisterRequest {
+  email: string
+  password: string
+  name: string
+  family_name?: string
+}
+
 export interface LoginResponse {
   token: string
   user: User
@@ -56,6 +63,7 @@ export interface User {
   email: string
   name: string
   family_id: string
+  role?: string
 }
 
 // ============================================
