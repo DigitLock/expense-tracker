@@ -51,6 +51,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, repos *repository.Repositor
 		repos.Transactions,
 		repos.Accounts,
 		repos.Categories,
+		repos.ExchangeRates,
 	)
 	currencyHandler := handlers.NewCurrencyHandler(repos.ExchangeRates)
 

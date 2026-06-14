@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"context"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -12,21 +15,67 @@ import (
 )
 
 type ReportHandler struct {
-	transactionRepo *repository.TransactionRepository
-	accountRepo     *repository.AccountRepository
-	categoryRepo    *repository.CategoryRepository
+	transactionRepo  *repository.TransactionRepository
+	accountRepo      *repository.AccountRepository
+	categoryRepo     *repository.CategoryRepository
+	exchangeRateRepo *repository.ExchangeRateRepository
 }
 
 func NewReportHandler(
 	transactionRepo *repository.TransactionRepository,
 	accountRepo *repository.AccountRepository,
 	categoryRepo *repository.CategoryRepository,
+	exchangeRateRepo *repository.ExchangeRateRepository,
 ) *ReportHandler {
 	return &ReportHandler{
-		transactionRepo: transactionRepo,
-		accountRepo:     accountRepo,
-		categoryRepo:    categoryRepo,
+		transactionRepo:  transactionRepo,
+		accountRepo:      accountRepo,
+		categoryRepo:     categoryRepo,
+		exchangeRateRepo: exchangeRateRepo,
 	}
+}
+
+// currencyConversion holds the resolved target currency for a report and how
+// to convert RSD amount_base sums into it.
+type currencyConversion struct {
+	currency string          // currency actually used in the response
+	rate     decimal.Decimal // RSD per 1 unit of currency (only when convert == true)
+	convert  bool
+	note     string // set when a non-RSD currency was requested but no rate was found
+}
+
+// apply converts an RSD amount into the resolved currency. Amounts stored as
+// amount_base are RSD; the rate is "RSD per 1 unit", so target = rsd / rate.
+func (c currencyConversion) apply(rsd decimal.Decimal) decimal.Decimal {
+	if !c.convert {
+		return rsd
+	}
+	return rsd.Div(c.rate).Round(2)
+}
+
+// resolveCurrency parses the requested currency and looks up the latest RSD->X
+// rate. Unknown currencies fall back to RSD. When a non-RSD currency is
+// requested but no rate exists, it falls back to RSD with an explanatory note.
+func (h *ReportHandler) resolveCurrency(ctx context.Context, requested string) currencyConversion {
+	requested = strings.ToUpper(strings.TrimSpace(requested))
+	switch requested {
+	case "EUR", "USD":
+		// supported targets to attempt conversion for
+	default:
+		// "RSD", "" or anything unrecognized -> no conversion
+		return currencyConversion{currency: "RSD"}
+	}
+
+	// Rates are stored as from=<foreign>, to=RSD (rate = RSD per 1 foreign unit).
+	rate, err := h.exchangeRateRepo.GetLatestRate(ctx, requested, "RSD", time.Now())
+	if err != nil || rate.Rate.IsZero() {
+		return currencyConversion{
+			currency: "RSD",
+			note:     fmt.Sprintf("Requested %s, but no exchange rate available; showing RSD", requested),
+		}
+	}
+
+	return currencyConversion{currency: requested, rate: rate.Rate, convert: true}
 }
 
 // SpendingByCategory godoc
@@ -72,6 +121,8 @@ func (h *ReportHandler) SpendingByCategory(w http.ResponseWriter, r *http.Reques
 		transactionType = "expense"
 	}
 
+	conv := h.resolveCurrency(r.Context(), r.URL.Query().Get("currency"))
+
 	// Summary by category
 	summaries, err := h.transactionRepo.GetSummaryByCategory(r.Context(), familyID, transactionType, startDate, endDate)
 	if err != nil {
@@ -79,7 +130,7 @@ func (h *ReportHandler) SpendingByCategory(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Calculate totals and build response
+	// Calculate totals (in RSD amount_base) and build response
 	var totalAmount decimal.Decimal
 	var totalTransactions int
 
@@ -88,7 +139,8 @@ func (h *ReportHandler) SpendingByCategory(w http.ResponseWriter, r *http.Reques
 		totalTransactions += int(s.Count)
 	}
 
-	// Build category spending list
+	// Build category spending list. Percentages are ratios of RSD sums and are
+	// unaffected by currency conversion; monetary amounts are converted.
 	categorySpending := make([]dto.CategorySpending, len(summaries))
 	for i, s := range summaries {
 		categoryName := "Unknown"
@@ -103,13 +155,13 @@ func (h *ReportHandler) SpendingByCategory(w http.ResponseWriter, r *http.Reques
 
 		avgPerTransaction := decimal.Zero
 		if s.Count > 0 {
-			avgPerTransaction = s.Total.Div(decimal.NewFromInt(s.Count)).Round(2)
+			avgPerTransaction = conv.apply(s.Total.Div(decimal.NewFromInt(s.Count)).Round(2))
 		}
 
 		categorySpending[i] = dto.CategorySpending{
 			CategoryID:            s.CategoryID,
 			CategoryName:          categoryName,
-			TotalAmount:           s.Total,
+			TotalAmount:           conv.apply(s.Total),
 			TransactionCount:      int(s.Count),
 			Percentage:            percentage,
 			AveragePerTransaction: avgPerTransaction,
@@ -122,12 +174,13 @@ func (h *ReportHandler) SpendingByCategory(w http.ResponseWriter, r *http.Reques
 			StartDate: startDate.Format("2006-01-02"),
 			EndDate:   endDate.Format("2006-01-02"),
 		},
-		Currency:           "RSD",
+		Currency:           conv.currency,
 		TransactionType:    transactionType,
 		SpendingByCategory: categorySpending,
-		TotalAmount:        totalAmount,
+		TotalAmount:        conv.apply(totalAmount),
 		TotalTransactions:  totalTransactions,
 		GeneratedAt:        time.Now().UTC(),
+		CurrencyNote:       conv.note,
 	}
 
 	writeSuccess(w, http.StatusOK, response)
@@ -164,6 +217,8 @@ func (h *ReportHandler) MonthlySummary(w http.ResponseWriter, r *http.Request) {
 	startDate := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 	endDate := startDate.AddDate(0, 1, -1) // Last day of month
 
+	conv := h.resolveCurrency(r.Context(), r.URL.Query().Get("currency"))
+
 	// Summary by type (income/expense totals)
 	typeSummaries, err := h.transactionRepo.GetSummaryByType(r.Context(), familyID, startDate, endDate)
 	if err != nil {
@@ -196,7 +251,7 @@ func (h *ReportHandler) MonthlySummary(w http.ResponseWriter, r *http.Request) {
 	incomeBreakdown := make(map[string]decimal.Decimal)
 	for _, s := range incomeSummaries {
 		if cat, err := h.categoryRepo.GetByID(r.Context(), s.CategoryID); err == nil {
-			incomeBreakdown[cat.Name] = s.Total
+			incomeBreakdown[cat.Name] = conv.apply(s.Total)
 		}
 	}
 
@@ -205,11 +260,13 @@ func (h *ReportHandler) MonthlySummary(w http.ResponseWriter, r *http.Request) {
 	expenseBreakdown := make(map[string]decimal.Decimal)
 	for _, s := range expenseSummaries {
 		if cat, err := h.categoryRepo.GetByID(r.Context(), s.CategoryID); err == nil {
-			expenseBreakdown[cat.Name] = s.Total
+			expenseBreakdown[cat.Name] = conv.apply(s.Total)
 		}
 	}
 
-	// Account balances
+	// Account balances are stored in each account's native currency (not
+	// amount_base), so they must NOT be currency-converted here — doing so
+	// would double-convert EUR accounts. Reported as-is.
 	accounts, _ := h.accountRepo.ListByFamily(r.Context(), familyID)
 	accountBalances := make(map[string]decimal.Decimal)
 	var totalBalance decimal.Decimal
@@ -221,12 +278,12 @@ func (h *ReportHandler) MonthlySummary(w http.ResponseWriter, r *http.Request) {
 	response := dto.MonthlySummaryResponse{
 		ReportType: "monthly_summary",
 		Month:      startDate.Format("2006-01"),
-		Currency:   "RSD",
+		Currency:   conv.currency,
 		Summary: dto.MonthlySummary{
-			TotalIncome:   totalIncome,
-			TotalExpenses: totalExpenses,
-			NetSavings:    netSavings,
-			SavingsRate:   savingsRate,
+			TotalIncome:   conv.apply(totalIncome),
+			TotalExpenses: conv.apply(totalExpenses),
+			NetSavings:    conv.apply(netSavings),
+			SavingsRate:   savingsRate, // percentage — unaffected by conversion
 		},
 		IncomeBreakdown:  incomeBreakdown,
 		ExpenseBreakdown: expenseBreakdown,
@@ -239,7 +296,8 @@ func (h *ReportHandler) MonthlySummary(w http.ResponseWriter, r *http.Request) {
 			ExpenseTransactions: expenseCount,
 			TotalTransactions:   incomeCount + expenseCount,
 		},
-		GeneratedAt: time.Now().UTC(),
+		GeneratedAt:  time.Now().UTC(),
+		CurrencyNote: conv.note,
 	}
 
 	writeSuccess(w, http.StatusOK, response)

@@ -21,6 +21,9 @@ type SpendingByCategoryResponse struct {
 	TotalAmount        decimal.Decimal    `json:"total_amount" example:"58975.00"`
 	TotalTransactions  int                `json:"total_transactions" example:"15"`
 	GeneratedAt        time.Time          `json:"generated_at" example:"2025-12-06T18:30:00Z"`
+	// CurrencyNote is set only when a non-RSD currency was requested but no
+	// exchange rate was available, so amounts fall back to RSD.
+	CurrencyNote string `json:"currency_note,omitempty" example:"Requested EUR, but no exchange rate available; showing RSD"`
 }
 
 // ReportPeriod represents the time period for a report
@@ -52,6 +55,9 @@ type MonthlySummaryResponse struct {
 	AccountBalances   AccountBalances            `json:"account_balances"`
 	TransactionCounts TransactionCounts          `json:"transaction_counts"`
 	GeneratedAt       time.Time                  `json:"generated_at" example:"2025-12-06T18:30:00Z"`
+	// CurrencyNote is set only when a non-RSD currency was requested but no
+	// exchange rate was available, so amounts fall back to RSD.
+	CurrencyNote string `json:"currency_note,omitempty" example:"Requested EUR, but no exchange rate available; showing RSD"`
 }
 
 // MonthlySummary represents monthly financial summary metrics
