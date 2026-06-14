@@ -218,6 +218,7 @@ export interface SpendingByCategoryReport {
   total_amount: string
   total_transactions: number
   generated_at: string
+  currency_note?: string
 }
 
 export interface MonthlySummary {
@@ -238,6 +239,7 @@ export interface MonthlySummaryReport {
     accounts: Record<string, string>
     total: string
   }
+  currency_note?: string
 }
 
 // ============================================
