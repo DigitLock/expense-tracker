@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+// Vendored from currency-rate-service (github.com/DigitLock/currency-rate-service),
+// proto/currency_rate/v1/service.proto. Contract is owned by that service; this is a
+// client-side copy for ET's gRPC client. Keep the proto package as currency_rate.v1
+// so the service full name matches the CRS server. Only go_package is repointed to
+// ET's pb output. Re-sync on CRS contract changes (see docs/discovery/v0.3.0-st1-discovery.md).
+package currency_rate.v1;
+
+option go_package = "github.com/DigitLock/expense-tracker/internal/grpc/pb";
+
+import "google/protobuf/timestamp.proto";
+
+service CurrencyRateService {
+  rpc GetRate(GetRateRequest) returns (GetRateResponse);
+  rpc GetRates(GetRatesRequest) returns (GetRatesResponse);
+  rpc ListSupportedPairs(ListSupportedPairsRequest) returns (ListSupportedPairsResponse);
+}
+
+message Rate {
+  string from_currency = 1;
+  string to_currency = 2;
+  double rate = 3;
+  google.protobuf.Timestamp updated_at = 4;
+  bool is_outdated = 5;
+  string source_provider = 6;
+}
+
+message CurrencyPair {
+  string from_currency = 1;
+  string to_currency = 2;
+  int32 polling_interval_seconds = 3;
+  bool is_active = 4;
+}
+
+message GetRateRequest {
+  string from_currency = 1;
+  string to_currency = 2;
+}
+
+message GetRateResponse {
+  Rate rate = 1;
+}
+
+message GetRatesRequest {
+  string base_currency = 1;
+  repeated string target_currencies = 2;
+}
+
+message GetRatesResponse {
+  repeated Rate rates = 1;
+}
+
+message ListSupportedPairsRequest {}
+
+message ListSupportedPairsResponse {
+  repeated CurrencyPair pairs = 1;
+}

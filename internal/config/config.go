@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -13,6 +14,7 @@ type Config struct {
 	Database DatabaseConfig
 	Server   ServerConfig
 	JWT      JWTConfig
+	Currency CurrencyConfig
 }
 
 type DatabaseConfig struct {
@@ -36,6 +38,13 @@ type ServerConfig struct {
 type JWTConfig struct {
 	Secret          string
 	ExpirationHours int
+}
+
+// CurrencyConfig holds settings for the Currency Rate Service gRPC client.
+type CurrencyConfig struct {
+	ServiceAddr  string        // host:port of the currency-rate-service gRPC endpoint
+	SyncInterval time.Duration // how often rates are synced (used by the st4 scheduler)
+	SyncTimeout  time.Duration // per-call timeout for a rate fetch
 }
 
 func (d DatabaseConfig) DSN() string {
@@ -69,6 +78,16 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid JWT_EXPIRATION_HOURS: %w", err)
 	}
 
+	currencySyncInterval, err := getEnvDuration("CURRENCY_SYNC_INTERVAL", "6h")
+	if err != nil {
+		return nil, fmt.Errorf("invalid CURRENCY_SYNC_INTERVAL: %w", err)
+	}
+
+	currencySyncTimeout, err := getEnvDuration("CURRENCY_SYNC_TIMEOUT", "10s")
+	if err != nil {
+		return nil, fmt.Errorf("invalid CURRENCY_SYNC_TIMEOUT: %w", err)
+	}
+
 	// Parse CORS origins
 	originsStr := getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")
 	origins := strings.Split(originsStr, ",")
@@ -97,6 +116,11 @@ func Load() (*Config, error) {
 			Secret:          getEnv("JWT_SECRET", ""),
 			ExpirationHours: jwtExpiration,
 		},
+		Currency: CurrencyConfig{
+			ServiceAddr:  getEnv("CURRENCY_SERVICE_ADDR", "localhost:50052"),
+			SyncInterval: currencySyncInterval,
+			SyncTimeout:  currencySyncTimeout,
+		},
 	}, nil
 }
 
@@ -105,4 +129,10 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// getEnvDuration reads a time.Duration env var (e.g. "6h", "10s"), falling back
+// to defaultValue when unset.
+func getEnvDuration(key, defaultValue string) (time.Duration, error) {
+	return time.ParseDuration(getEnv(key, defaultValue))
 }
