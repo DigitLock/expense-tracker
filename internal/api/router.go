@@ -11,10 +11,13 @@ import (
 	"github.com/DigitLock/expense-tracker/internal/api/middleware"
 	"github.com/DigitLock/expense-tracker/internal/auth"
 	"github.com/DigitLock/expense-tracker/internal/config"
+	"github.com/DigitLock/expense-tracker/internal/currency"
 	"github.com/DigitLock/expense-tracker/internal/repository"
 )
 
-func NewRouter(cfg *config.Config, db *pgxpool.Pool, repos *repository.Repositories) *chi.Mux {
+// NewRouter builds the HTTP router. currencySyncer is shared with the background
+// scheduler and may be nil if the currency client failed to initialize.
+func NewRouter(cfg *config.Config, db *pgxpool.Pool, repos *repository.Repositories, currencySyncer *currency.Syncer) *chi.Mux {
 	r := chi.NewRouter()
 
 	// JWT Service
@@ -54,6 +57,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, repos *repository.Repositor
 		repos.ExchangeRates,
 	)
 	currencyHandler := handlers.NewCurrencyHandler(repos.ExchangeRates)
+	exchangeRateHandler := handlers.NewExchangeRateHandler(currencySyncer)
 
 	// Swagger UI
 	r.Get("/swagger/*", httpSwagger.Handler(
@@ -115,6 +119,11 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, repos *repository.Repositor
 			r.Route("/currencies", func(r chi.Router) {
 				r.Get("/rates", currencyHandler.GetRates)
 				r.Get("/convert", currencyHandler.Convert)
+			})
+
+			// Exchange rates (forced sync)
+			r.Route("/exchange-rates", func(r chi.Router) {
+				r.Post("/sync", exchangeRateHandler.Sync)
 			})
 		})
 	})

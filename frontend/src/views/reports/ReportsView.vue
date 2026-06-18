@@ -20,7 +20,7 @@ const selectedMonth = ref(defaultMonth()) // YYYY-MM (input type="month")
 const selectedType = ref<'expense' | 'income'>('expense')
 const selectedCurrency = ref<Currency>('RSD')
 
-const currencyOptions: Currency[] = ['RSD', 'EUR']
+const currencyOptions: Currency[] = ['RSD', 'EUR', 'USD']
 
 // Derive the spending-by-category date range from the selected month.
 const monthStart = computed(() => `${selectedMonth.value}-01`)

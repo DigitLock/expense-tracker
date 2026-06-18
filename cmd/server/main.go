@@ -12,6 +12,7 @@ import (
 	"github.com/DigitLock/expense-tracker/internal/api"
 	"github.com/DigitLock/expense-tracker/internal/auth"
 	"github.com/DigitLock/expense-tracker/internal/config"
+	"github.com/DigitLock/expense-tracker/internal/currency"
 	"github.com/DigitLock/expense-tracker/internal/database"
 	grpcserver "github.com/DigitLock/expense-tracker/internal/grpc"
 	"github.com/DigitLock/expense-tracker/internal/repository"
@@ -78,6 +79,27 @@ func main() {
 	repos := repository.New(db.Pool)
 	log.Println("Repositories initialized")
 
+	// appCtx is cancelled on shutdown to stop background workers (currency sync).
+	appCtx, appCancel := context.WithCancel(context.Background())
+	defer appCancel()
+
+	// Background currency rate sync. A failure to build the client (e.g. bad
+	// address) must not crash the server — log and run without the scheduler.
+	// The Syncer is shared with the API (forced-sync endpoint); it is nil when
+	// the client could not be built.
+	var currencyClient *currency.Client
+	var currencySyncer *currency.Syncer
+	var currencyScheduler *currency.Scheduler
+	if currencyClient, err = currency.NewClient(cfg.Currency.ServiceAddr, cfg.Currency.SyncTimeout); err != nil {
+		log.Printf("WARNING: currency client init failed, rate sync disabled: %v", err)
+		currencyClient = nil
+	} else {
+		currencySyncer = currency.NewSyncer(currencyClient, repos.ExchangeRates)
+		currencyScheduler = currency.NewScheduler(currencySyncer, cfg.Currency.SyncInterval)
+		currencyScheduler.Start(appCtx)
+		log.Printf("Currency rate sync scheduled every %s (service %s)", cfg.Currency.SyncInterval, cfg.Currency.ServiceAddr)
+	}
+
 	jwtService := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.ExpirationHours)
 
 	grpcSrv := grpcserver.NewServer(repos, jwtService, cfg.Server.GRPCPort)
@@ -89,7 +111,7 @@ func main() {
 		}
 	}()
 
-	router := api.NewRouter(cfg, db.Pool, repos)
+	router := api.NewRouter(cfg, db.Pool, repos, currencySyncer)
 
 	server := api.NewServer(&cfg.Server, router)
 
@@ -110,6 +132,13 @@ func main() {
 
 	log.Println("Shutting down server...")
 
+	// Stop the currency scheduler goroutine before tearing down its dependencies,
+	// and wait for it to exit so we don't close the client mid-sync.
+	appCancel()
+	if currencyScheduler != nil {
+		currencyScheduler.Wait()
+	}
+
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.Server.ShutdownTimeout)*time.Second)
 	defer cancel()
 
@@ -118,6 +147,11 @@ func main() {
 	}
 
 	grpcSrv.Stop()
+
+	// Close the currency gRPC client after the scheduler has been signalled to stop.
+	if currencyClient != nil {
+		_ = currencyClient.Close()
+	}
 
 	log.Println("Server stopped gracefully")
 }

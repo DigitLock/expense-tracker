@@ -94,6 +94,8 @@ type ExchangeRate struct {
 	Source string `json:"source"`
 	// Timestamp when rate was inserted into database. Not the same as rate.date!
 	CreatedAt time.Time `json:"created_at"`
+	// When this rate was fetched from the currency-rate-service (UTC). NULL for legacy/manual rows.
+	FetchedAt pgtype.Timestamptz `json:"fetched_at"`
 }
 
 // Family/household entities for financial data isolation. Root table for multi-tenancy.
