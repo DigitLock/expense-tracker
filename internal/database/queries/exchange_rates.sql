@@ -35,10 +35,13 @@ RETURNING *;
 
 -- name: UpsertExchangeRate :one
 INSERT INTO exchange_rates (
-    id, from_currency, to_currency, rate, date
+    id, from_currency, to_currency, rate, date, source, fetched_at
 ) VALUES (
-             $1, $2, $3, $4, $5
+             $1, $2, $3, $4, $5, $6, $7
          )
 ON CONFLICT (from_currency, to_currency, date)
-    DO UPDATE SET rate = EXCLUDED.rate
+    DO UPDATE SET
+        rate = EXCLUDED.rate,
+        source = EXCLUDED.source,
+        fetched_at = EXCLUDED.fetched_at
 RETURNING *;

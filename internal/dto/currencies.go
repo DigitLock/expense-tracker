@@ -18,6 +18,13 @@ type ExchangeRatesResponse struct {
 	Source       string                     `json:"source" example:"api"`
 }
 
+// ExchangeRateSyncResponse summarizes a forced exchange-rate sync.
+type ExchangeRateSyncResponse struct {
+	SyncedPairs int       `json:"synced_pairs" example:"2"`
+	Source      string    `json:"source" example:"fawazahmed0"`
+	FetchedAt   time.Time `json:"fetched_at" example:"2025-12-06T18:30:00Z"`
+}
+
 // Currency Conversion
 
 // ConvertCurrencyResponse represents currency conversion result

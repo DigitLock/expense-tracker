@@ -19,7 +19,7 @@ INSERT INTO exchange_rates (
 ) VALUES (
              $1, $2, $3, $4, $5
          )
-RETURNING id, from_currency, to_currency, rate, date, source, created_at
+RETURNING id, from_currency, to_currency, rate, date, source, created_at, fetched_at
 `
 
 type CreateExchangeRateParams struct {
@@ -47,12 +47,13 @@ func (q *Queries) CreateExchangeRate(ctx context.Context, arg CreateExchangeRate
 		&i.Date,
 		&i.Source,
 		&i.CreatedAt,
+		&i.FetchedAt,
 	)
 	return i, err
 }
 
 const getExchangeRate = `-- name: GetExchangeRate :one
-SELECT id, from_currency, to_currency, rate, date, source, created_at FROM exchange_rates
+SELECT id, from_currency, to_currency, rate, date, source, created_at, fetched_at FROM exchange_rates
 WHERE from_currency = $1
   AND to_currency = $2
   AND date = $3
@@ -75,12 +76,13 @@ func (q *Queries) GetExchangeRate(ctx context.Context, arg GetExchangeRateParams
 		&i.Date,
 		&i.Source,
 		&i.CreatedAt,
+		&i.FetchedAt,
 	)
 	return i, err
 }
 
 const getLatestExchangeRate = `-- name: GetLatestExchangeRate :one
-SELECT id, from_currency, to_currency, rate, date, source, created_at FROM exchange_rates
+SELECT id, from_currency, to_currency, rate, date, source, created_at, fetched_at FROM exchange_rates
 WHERE from_currency = $1
   AND to_currency = $2
   AND date <= $3
@@ -105,12 +107,13 @@ func (q *Queries) GetLatestExchangeRate(ctx context.Context, arg GetLatestExchan
 		&i.Date,
 		&i.Source,
 		&i.CreatedAt,
+		&i.FetchedAt,
 	)
 	return i, err
 }
 
 const listExchangeRatesByDate = `-- name: ListExchangeRatesByDate :many
-SELECT id, from_currency, to_currency, rate, date, source, created_at FROM exchange_rates
+SELECT id, from_currency, to_currency, rate, date, source, created_at, fetched_at FROM exchange_rates
 WHERE date = $1
 ORDER BY from_currency, to_currency
 `
@@ -132,6 +135,7 @@ func (q *Queries) ListExchangeRatesByDate(ctx context.Context, date pgtype.Date)
 			&i.Date,
 			&i.Source,
 			&i.CreatedAt,
+			&i.FetchedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -144,7 +148,7 @@ func (q *Queries) ListExchangeRatesByDate(ctx context.Context, date pgtype.Date)
 }
 
 const listExchangeRatesHistory = `-- name: ListExchangeRatesHistory :many
-SELECT id, from_currency, to_currency, rate, date, source, created_at FROM exchange_rates
+SELECT id, from_currency, to_currency, rate, date, source, created_at, fetched_at FROM exchange_rates
 WHERE from_currency = $1
   AND to_currency = $2
   AND date >= $3
@@ -181,6 +185,7 @@ func (q *Queries) ListExchangeRatesHistory(ctx context.Context, arg ListExchange
 			&i.Date,
 			&i.Source,
 			&i.CreatedAt,
+			&i.FetchedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -194,21 +199,26 @@ func (q *Queries) ListExchangeRatesHistory(ctx context.Context, arg ListExchange
 
 const upsertExchangeRate = `-- name: UpsertExchangeRate :one
 INSERT INTO exchange_rates (
-    id, from_currency, to_currency, rate, date
+    id, from_currency, to_currency, rate, date, source, fetched_at
 ) VALUES (
-             $1, $2, $3, $4, $5
+             $1, $2, $3, $4, $5, $6, $7
          )
 ON CONFLICT (from_currency, to_currency, date)
-    DO UPDATE SET rate = EXCLUDED.rate
-RETURNING id, from_currency, to_currency, rate, date, source, created_at
+    DO UPDATE SET
+        rate = EXCLUDED.rate,
+        source = EXCLUDED.source,
+        fetched_at = EXCLUDED.fetched_at
+RETURNING id, from_currency, to_currency, rate, date, source, created_at, fetched_at
 `
 
 type UpsertExchangeRateParams struct {
-	ID           uuid.UUID       `json:"id"`
-	FromCurrency string          `json:"from_currency"`
-	ToCurrency   string          `json:"to_currency"`
-	Rate         decimal.Decimal `json:"rate"`
-	Date         pgtype.Date     `json:"date"`
+	ID           uuid.UUID          `json:"id"`
+	FromCurrency string             `json:"from_currency"`
+	ToCurrency   string             `json:"to_currency"`
+	Rate         decimal.Decimal    `json:"rate"`
+	Date         pgtype.Date        `json:"date"`
+	Source       string             `json:"source"`
+	FetchedAt    pgtype.Timestamptz `json:"fetched_at"`
 }
 
 func (q *Queries) UpsertExchangeRate(ctx context.Context, arg UpsertExchangeRateParams) (ExchangeRate, error) {
@@ -218,6 +228,8 @@ func (q *Queries) UpsertExchangeRate(ctx context.Context, arg UpsertExchangeRate
 		arg.ToCurrency,
 		arg.Rate,
 		arg.Date,
+		arg.Source,
+		arg.FetchedAt,
 	)
 	var i ExchangeRate
 	err := row.Scan(
@@ -228,6 +240,7 @@ func (q *Queries) UpsertExchangeRate(ctx context.Context, arg UpsertExchangeRate
 		&i.Date,
 		&i.Source,
 		&i.CreatedAt,
+		&i.FetchedAt,
 	)
 	return i, err
 }

@@ -54,12 +54,16 @@ func (r *ExchangeRateRepository) ListHistory(ctx context.Context, fromCurrency, 
 	})
 }
 
-// CreateRateInput contains data for creating a new exchange rate
+// CreateRateInput contains data for creating a new exchange rate.
+// Source and FetchedAt are provenance fields used by Upsert (sync); Create
+// ignores them.
 type CreateRateInput struct {
 	FromCurrency string
 	ToCurrency   string
 	Rate         decimal.Decimal
 	Date         time.Time
+	Source       string
+	FetchedAt    time.Time
 }
 
 // Create creates a new exchange rate
@@ -81,5 +85,7 @@ func (r *ExchangeRateRepository) Upsert(ctx context.Context, input CreateRateInp
 		ToCurrency:   input.ToCurrency,
 		Rate:         input.Rate,
 		Date:         pgtype.Date{Time: input.Date, Valid: true},
+		Source:       input.Source,
+		FetchedAt:    pgtype.Timestamptz{Time: input.FetchedAt, Valid: !input.FetchedAt.IsZero()},
 	})
 }
