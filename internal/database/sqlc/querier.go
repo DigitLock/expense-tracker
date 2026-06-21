@@ -75,7 +75,10 @@ type Querier interface {
 	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error)
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
 	UpdateFamily(ctx context.Context, arg UpdateFamilyParams) (Family, error)
-	UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (Transaction, error)
+	// Full update including account_id and type (supports moving a transaction
+	// between accounts / changing its type). The balance trigger recalculates both
+	// the old and new account (migration 014).
+	UpdateTransactionFull(ctx context.Context, arg UpdateTransactionFullParams) (Transaction, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	UpsertExchangeRate(ctx context.Context, arg UpsertExchangeRateParams) (ExchangeRate, error)

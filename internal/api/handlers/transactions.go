@@ -5,23 +5,28 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/DigitLock/expense-tracker/internal/api/middleware"
 	"github.com/DigitLock/expense-tracker/internal/database/sqlc"
+	"github.com/DigitLock/expense-tracker/internal/domain"
 	"github.com/DigitLock/expense-tracker/internal/dto"
 	"github.com/DigitLock/expense-tracker/internal/repository"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-playground/validator/v10"
-	"github.com/google/uuid"
+	"github.com/DigitLock/expense-tracker/internal/service/transaction"
 )
 
+// TransactionHandler is a thin REST adapter over the transaction service.
+// The account/category/user repos are retained only to enrich the REST
+// response (nested account/category objects and creator name) — the response
+// shape is unchanged. Get remains repo-backed (read-only extra).
 type TransactionHandler struct {
+	svc             *transaction.Service
 	transactionRepo *repository.TransactionRepository
 	accountRepo     *repository.AccountRepository
 	categoryRepo    *repository.CategoryRepository
 	userRepo        *repository.UserRepository
-	validate        *validator.Validate
 }
 
 func NewTransactionHandler(
@@ -31,11 +36,11 @@ func NewTransactionHandler(
 	userRepo *repository.UserRepository,
 ) *TransactionHandler {
 	return &TransactionHandler{
+		svc:             transaction.New(transactionRepo, accountRepo, categoryRepo),
 		transactionRepo: transactionRepo,
 		accountRepo:     accountRepo,
 		categoryRepo:    categoryRepo,
 		userRepo:        userRepo,
-		validate:        newValidator(),
 	}
 }
 
@@ -51,7 +56,6 @@ func NewTransactionHandler(
 // @Param        page query int false "Page number (starts from 1)" default(1) minimum(1)
 // @Param        per_page query int false "Items per page" default(50) minimum(1) maximum(100)
 // @Success      200 {object} dto.SuccessResponse{data=dto.TransactionListResponse} "Paginated list of transactions"
-// @Failure      400 {object} dto.ErrorResponse "Invalid query parameters"
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
 // @Router       /transactions [get]
@@ -62,64 +66,40 @@ func (h *TransactionHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse query params
-	typeFilter := r.URL.Query().Get("type")
-	accountIDStr := r.URL.Query().Get("account_id")
-	month := r.URL.Query().Get("month")
-
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	if page < 1 {
-		page = 1
-	}
-
 	perPage, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
-	if perPage < 1 || perPage > 100 {
-		perPage = 50
-	}
 
-	filter := repository.TransactionFilter{
-		FamilyID: familyID,
-		Limit:    int32(perPage),
-		Offset:   int32((page - 1) * perPage),
+	filter := transaction.ListFilter{
+		Month:   r.URL.Query().Get("month"),
+		Page:    page,
+		PerPage: perPage,
 	}
-
-	if typeFilter == "income" || typeFilter == "expense" {
+	if typeFilter := r.URL.Query().Get("type"); typeFilter == "income" || typeFilter == "expense" {
 		filter.Type = &typeFilter
 	}
-
-	if accountIDStr != "" {
+	if accountIDStr := r.URL.Query().Get("account_id"); accountIDStr != "" {
 		if accountID, err := uuid.Parse(accountIDStr); err == nil {
 			filter.AccountID = &accountID
 		}
 	}
 
-	// Parse month filter (YYYY-MM)
-	if month != "" {
-		if startDate, err := time.Parse("2006-01", month); err == nil {
-			endDate := startDate.AddDate(0, 1, -1) // Last day of month
-			filter.StartDate = &startDate
-			filter.EndDate = &endDate
-		}
-	}
-
-	transactions, total, err := h.transactionRepo.ListFiltered(r.Context(), filter)
+	result, err := h.svc.List(r.Context(), familyID, filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to fetch transactions")
+		writeDomainError(w, err)
 		return
 	}
 
 	response := dto.TransactionListResponse{
-		Transactions: make([]dto.TransactionResponse, len(transactions)),
+		Transactions: make([]dto.TransactionResponse, len(result.Transactions)),
 		Pagination: dto.PaginationMeta{
-			Page:       page,
-			PerPage:    perPage,
-			Total:      int(total),
-			TotalPages: (int(total) + perPage - 1) / perPage,
+			Page:       result.Page,
+			PerPage:    result.PerPage,
+			Total:      result.Total,
+			TotalPages: result.TotalPages,
 		},
 	}
-
-	for i, t := range transactions {
-		response.Transactions[i] = h.mapTransaction(r.Context(), t)
+	for i, t := range result.Transactions {
+		response.Transactions[i] = h.mapDomainTransaction(r.Context(), t)
 	}
 
 	writeSuccess(w, http.StatusOK, response)
@@ -144,7 +124,6 @@ func (h *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Family context not found")
 		return
 	}
-
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "User context not found")
@@ -157,68 +136,21 @@ func (h *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.validate.Struct(req); err != nil {
-		writeValidationError(w, formatValidationErrors(err))
-		return
-	}
-
-	// Business validation
-	if errors := req.ValidateBusiness(); len(errors) > 0 {
-		writeValidationError(w, errors)
-		return
-	}
-
-	// Validate account belongs to family
-	account, err := h.accountRepo.GetByID(r.Context(), req.AccountID)
-	if err != nil || account.FamilyID != familyID {
-		writeValidationError(w, []dto.ValidationError{
-			{Field: "account_id", Message: "Account not found"},
-		})
-		return
-	}
-
-	// Transaction currency must match account currency
-	if req.Currency != account.Currency {
-		writeValidationError(w, []dto.ValidationError{
-			{Field: "currency", Message: "Transaction currency must match account currency (" + account.Currency + ")"},
-		})
-		return
-	}
-
-	// Validate category belongs to family and matches type
-	category, err := h.categoryRepo.GetByID(r.Context(), req.CategoryID)
-	if err != nil || category.FamilyID != familyID {
-		writeValidationError(w, []dto.ValidationError{
-			{Field: "category_id", Message: "Category not found"},
-		})
-		return
-	}
-	if category.Type != req.Type {
-		writeValidationError(w, []dto.ValidationError{
-			{Field: "category_id", Message: "Category type must match transaction type"},
-		})
-		return
-	}
-
-	date, _ := time.Parse("2006-01-02", req.Date)
-
-	transaction, err := h.transactionRepo.Create(r.Context(), repository.CreateTransactionInput{
-		FamilyID:        familyID,
-		AccountID:       req.AccountID,
-		CategoryID:      req.CategoryID,
-		Type:            req.Type,
-		Amount:          req.Amount,
-		Currency:        req.Currency,
-		Description:     req.Description,
-		TransactionDate: date,
-		CreatedBy:       userID,
+	tx, err := h.svc.Create(r.Context(), familyID, userID, transaction.CreateTransactionInput{
+		Type:        req.Type,
+		Amount:      req.Amount,
+		Currency:    req.Currency,
+		CategoryID:  req.CategoryID.String(),
+		AccountID:   req.AccountID.String(),
+		Description: req.Description,
+		Date:        req.Date,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to create transaction: "+err.Error())
+		writeDomainError(w, err)
 		return
 	}
 
-	writeSuccess(w, http.StatusCreated, h.mapTransaction(r.Context(), transaction))
+	writeSuccess(w, http.StatusCreated, h.mapDomainTransaction(r.Context(), tx))
 }
 
 // Get godoc
@@ -247,18 +179,13 @@ func (h *TransactionHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	transaction, err := h.transactionRepo.GetByID(r.Context(), transactionID)
-	if err != nil {
+	t, err := h.transactionRepo.GetByID(r.Context(), transactionID)
+	if err != nil || t.FamilyID != familyID {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "Transaction not found")
 		return
 	}
 
-	if transaction.FamilyID != familyID {
-		writeError(w, http.StatusNotFound, "NOT_FOUND", "Transaction not found")
-		return
-	}
-
-	writeSuccess(w, http.StatusOK, h.mapTransaction(r.Context(), transaction))
+	writeSuccess(w, http.StatusOK, h.mapSqlcTransaction(r.Context(), t))
 }
 
 // Update godoc
@@ -273,7 +200,7 @@ func (h *TransactionHandler) Get(w http.ResponseWriter, r *http.Request) {
 // @Success      200 {object} dto.SuccessResponse{data=dto.TransactionResponse} "Transaction updated successfully"
 // @Failure      400 {object} dto.ErrorResponse "Invalid request body, validation error, or business rule violation"
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
-// @Failure      404 {object} dto.ErrorResponse "Transaction not found or does not belong to user's family"
+// @Failure      404 {object} dto.ErrorResponse "Transaction not found"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
 // @Router       /transactions/{id} [patch]
 func (h *TransactionHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -282,7 +209,6 @@ func (h *TransactionHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Family context not found")
 		return
 	}
-
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "User context not found")
@@ -295,96 +221,32 @@ func (h *TransactionHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	existing, err := h.transactionRepo.GetByID(r.Context(), transactionID)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "NOT_FOUND", "Transaction not found")
-		return
-	}
-	if existing.FamilyID != familyID {
-		writeError(w, http.StatusNotFound, "NOT_FOUND", "Transaction not found")
-		return
-	}
-
 	var req dto.UpdateTransactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_JSON", "Invalid request body")
 		return
 	}
 
-	if err := h.validate.Struct(req); err != nil {
-		writeValidationError(w, formatValidationErrors(err))
-		return
+	// REST supports updating category/amount/currency/description/date (not
+	// account_id or type — those are only exposed over gRPC).
+	in := transaction.UpdateTransactionInput{
+		Amount:      req.Amount,
+		Currency:    req.Currency,
+		Description: req.Description,
+		Date:        req.Date,
 	}
-
-	if errors := req.ValidateBusiness(); len(errors) > 0 {
-		writeValidationError(w, errors)
-		return
-	}
-
-	// Build update input with existing values as defaults
-	categoryID := existing.CategoryID
 	if req.CategoryID != nil {
-		// Validate new category
-		category, err := h.categoryRepo.GetByID(r.Context(), *req.CategoryID)
-		if err != nil || category.FamilyID != familyID {
-			writeValidationError(w, []dto.ValidationError{
-				{Field: "category_id", Message: "Category not found"},
-			})
-			return
-		}
-		categoryID = *req.CategoryID
+		s := req.CategoryID.String()
+		in.CategoryID = &s
 	}
 
-	amount := existing.Amount
-	if req.Amount != nil {
-		amount = *req.Amount
-	}
-
-	currency := existing.Currency
-	if req.Currency != nil {
-		// Validate currency matches the transaction's account
-		account, err := h.accountRepo.GetByID(r.Context(), existing.AccountID)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to validate account currency")
-			return
-		}
-		if *req.Currency != account.Currency {
-			writeValidationError(w, []dto.ValidationError{
-				{Field: "currency", Message: "Transaction currency must match account currency (" + account.Currency + ")"},
-			})
-			return
-		}
-		currency = *req.Currency
-	}
-
-	description := ""
-	if existing.Description.Valid {
-		description = existing.Description.String
-	}
-	if req.Description != nil {
-		description = *req.Description
-	}
-
-	transactionDate := existing.TransactionDate.Time
-	if req.Date != nil {
-		transactionDate, _ = time.Parse("2006-01-02", *req.Date)
-	}
-
-	transaction, err := h.transactionRepo.Update(r.Context(), repository.UpdateTransactionInput{
-		ID:              transactionID,
-		CategoryID:      categoryID,
-		Amount:          amount,
-		Currency:        currency,
-		Description:     description,
-		TransactionDate: transactionDate,
-		UpdatedBy:       userID,
-	})
+	tx, err := h.svc.Update(r.Context(), familyID, userID, transactionID, in)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to update transaction")
+		writeDomainError(w, err)
 		return
 	}
 
-	writeSuccess(w, http.StatusOK, h.mapTransaction(r.Context(), transaction))
+	writeSuccess(w, http.StatusOK, h.mapDomainTransaction(r.Context(), tx))
 }
 
 // Delete godoc
@@ -397,7 +259,7 @@ func (h *TransactionHandler) Update(w http.ResponseWriter, r *http.Request) {
 // @Success      200 {object} dto.MessageResponse "Transaction deleted successfully"
 // @Failure      400 {object} dto.ErrorResponse "Invalid transaction ID format"
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
-// @Failure      404 {object} dto.ErrorResponse "Transaction not found or does not belong to user's family"
+// @Failure      404 {object} dto.ErrorResponse "Transaction not found"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
 // @Router       /transactions/{id} [delete]
 func (h *TransactionHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -406,7 +268,6 @@ func (h *TransactionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Family context not found")
 		return
 	}
-
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "User context not found")
@@ -419,18 +280,8 @@ func (h *TransactionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	existing, err := h.transactionRepo.GetByID(r.Context(), transactionID)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "NOT_FOUND", "Transaction not found")
-		return
-	}
-	if existing.FamilyID != familyID {
-		writeError(w, http.StatusNotFound, "NOT_FOUND", "Transaction not found")
-		return
-	}
-
-	if err := h.transactionRepo.Delete(r.Context(), transactionID, userID); err != nil {
-		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to delete transaction")
+	if err := h.svc.Delete(r.Context(), familyID, userID, transactionID); err != nil {
+		writeDomainError(w, err)
 		return
 	}
 
@@ -439,45 +290,55 @@ func (h *TransactionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // Helper functions
 
-func (h *TransactionHandler) mapTransaction(ctx context.Context, t sqlc.Transaction) dto.TransactionResponse {
-	response := dto.TransactionResponse{
+// mapDomainTransaction maps a service-layer domain.Transaction to the REST DTO,
+// enriching with nested category/account objects and creator name.
+func (h *TransactionHandler) mapDomainTransaction(ctx context.Context, t domain.Transaction) dto.TransactionResponse {
+	resp := dto.TransactionResponse{
 		ID:           t.ID,
 		Type:         t.Type,
 		Amount:       t.Amount,
 		Currency:     t.Currency,
 		AmountBase:   t.AmountBase,
-		BaseCurrency: "RSD", // MVP: always RSD
+		BaseCurrency: t.BaseCurrency,
+		Date:         t.Date.Format("2006-01-02"),
+		CreatedAt:    t.CreatedAt,
+	}
+	if t.Description != "" {
+		d := t.Description
+		resp.Description = &d
+	}
+	h.enrich(ctx, &resp, t.CategoryID, t.AccountID, t.CreatedBy)
+	return resp
+}
+
+// mapSqlcTransaction maps a repo sqlc.Transaction to the REST DTO (used by Get).
+func (h *TransactionHandler) mapSqlcTransaction(ctx context.Context, t sqlc.Transaction) dto.TransactionResponse {
+	resp := dto.TransactionResponse{
+		ID:           t.ID,
+		Type:         t.Type,
+		Amount:       t.Amount,
+		Currency:     t.Currency,
+		AmountBase:   t.AmountBase,
+		BaseCurrency: "RSD",
 		Date:         t.TransactionDate.Time.Format("2006-01-02"),
 		CreatedAt:    t.CreatedAt,
 	}
-
-	// Get description
 	if t.Description.Valid {
-		response.Description = &t.Description.String
+		resp.Description = &t.Description.String
 	}
+	h.enrich(ctx, &resp, t.CategoryID, t.AccountID, t.CreatedBy)
+	return resp
+}
 
-	// Get category info
-	if category, err := h.categoryRepo.GetByID(ctx, t.CategoryID); err == nil {
-		response.Category = dto.TransactionCategoryInfo{
-			ID:   category.ID,
-			Name: category.Name,
-			Type: category.Type,
-		}
+// enrich fills the nested category/account objects and creator name.
+func (h *TransactionHandler) enrich(ctx context.Context, resp *dto.TransactionResponse, categoryID, accountID, createdBy uuid.UUID) {
+	if category, err := h.categoryRepo.GetByID(ctx, categoryID); err == nil {
+		resp.Category = dto.TransactionCategoryInfo{ID: category.ID, Name: category.Name, Type: category.Type}
 	}
-
-	// Get account info
-	if account, err := h.accountRepo.GetByID(ctx, t.AccountID); err == nil {
-		response.Account = dto.TransactionAccountInfo{
-			ID:   account.ID,
-			Name: account.Name,
-			Type: account.Type,
-		}
+	if account, err := h.accountRepo.GetByID(ctx, accountID); err == nil {
+		resp.Account = dto.TransactionAccountInfo{ID: account.ID, Name: account.Name, Type: account.Type}
 	}
-
-	// Get creator name
-	if user, err := h.userRepo.GetByID(ctx, t.CreatedBy); err == nil {
-		response.CreatedBy = user.Name
+	if user, err := h.userRepo.GetByID(ctx, createdBy); err == nil {
+		resp.CreatedBy = user.Name
 	}
-
-	return response
 }

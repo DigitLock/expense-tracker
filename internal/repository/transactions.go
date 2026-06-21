@@ -103,21 +103,7 @@ func (r *TransactionRepository) Create(ctx context.Context, input CreateTransact
 		return sqlc.Transaction{}, fmt.Errorf("failed to set audit user: %w", err)
 	}
 
-	// Calculate amount_base for cross-currency reporting.
-	// amount_base converts to base currency (RSD); it does NOT affect
-	// account balance (which uses amount in the account's native currency).
-	amountBase := input.Amount
-	if input.Currency != "RSD" {
-		rate, err := r.getExchangeRate(ctx, tx, input.Currency, "RSD", input.TransactionDate)
-		if err != nil {
-			// Exchange rate unavailable — use amount as fallback (1:1).
-			// Reports may be inaccurate until rates are populated.
-			log.Printf("WARN: exchange rate %s→RSD unavailable for %s, using amount as amount_base fallback",
-				input.Currency, input.TransactionDate.Format("2006-01-02"))
-		} else {
-			amountBase = input.Amount.Mul(rate)
-		}
-	}
+	amountBase := r.computeAmountBase(ctx, tx, input.Amount, input.Currency, input.TransactionDate)
 
 	// Create transaction using queries with tx
 	qtx := sqlc.New(tx)
@@ -167,10 +153,30 @@ func (r *TransactionRepository) getExchangeRate(ctx context.Context, tx pgx.Tx, 
 	return rate.Rate, nil
 }
 
-// UpdateTransactionInput contains data for updating a transaction
-type UpdateTransactionInput struct {
+// computeAmountBase converts amount to base currency (RSD) for cross-currency
+// reporting. On a missing exchange rate it falls back to the amount 1:1 with a
+// warning. amount_base does NOT affect account balance (native currency).
+func (r *TransactionRepository) computeAmountBase(ctx context.Context, tx pgx.Tx, amount decimal.Decimal, currency string, date time.Time) decimal.Decimal {
+	if currency == "RSD" {
+		return amount
+	}
+	rate, err := r.getExchangeRate(ctx, tx, currency, "RSD", date)
+	if err != nil {
+		log.Printf("WARN: exchange rate %s→RSD unavailable for %s, using amount as amount_base fallback",
+			currency, date.Format("2006-01-02"))
+		return amount
+	}
+	return amount.Mul(rate)
+}
+
+// UpdateTransactionFullInput contains data for a full transaction update,
+// including account_id and type (so a transaction can be moved between accounts
+// or change type). amount_base is recomputed from amount/currency.
+type UpdateTransactionFullInput struct {
 	ID              uuid.UUID
+	AccountID       uuid.UUID
 	CategoryID      uuid.UUID
+	Type            string
 	Amount          decimal.Decimal
 	Currency        string
 	Description     string
@@ -178,31 +184,23 @@ type UpdateTransactionInput struct {
 	UpdatedBy       uuid.UUID
 }
 
-// Update updates a transaction
-func (r *TransactionRepository) Update(ctx context.Context, input UpdateTransactionInput) (sqlc.Transaction, error) {
+// UpdateFull updates all mutable fields of a transaction (incl. account_id and
+// type). The balance trigger (migration 014) recalculates both the old and new
+// account when account_id changes.
+func (r *TransactionRepository) UpdateFull(ctx context.Context, input UpdateTransactionFullInput) (sqlc.Transaction, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return sqlc.Transaction{}, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer deferRollback(ctx, tx)
 
-	// Set user ID for audit trail
+	// Audit trail.
 	_, err = tx.Exec(ctx, fmt.Sprintf("SET LOCAL app.current_user_id = '%s'", input.UpdatedBy.String()))
 	if err != nil {
 		return sqlc.Transaction{}, fmt.Errorf("failed to set audit user: %w", err)
 	}
 
-	// Calculate amount_base for cross-currency reporting (same logic as Create).
-	amountBase := input.Amount
-	if input.Currency != "RSD" {
-		rate, err := r.getExchangeRate(ctx, tx, input.Currency, "RSD", input.TransactionDate)
-		if err != nil {
-			log.Printf("WARN: exchange rate %s→RSD unavailable for %s, using amount as amount_base fallback",
-				input.Currency, input.TransactionDate.Format("2006-01-02"))
-		} else {
-			amountBase = input.Amount.Mul(rate)
-		}
-	}
+	amountBase := r.computeAmountBase(ctx, tx, input.Amount, input.Currency, input.TransactionDate)
 
 	qtx := sqlc.New(tx)
 
@@ -211,9 +209,11 @@ func (r *TransactionRepository) Update(ctx context.Context, input UpdateTransact
 		description = pgtype.Text{String: input.Description, Valid: true}
 	}
 
-	result, err := qtx.UpdateTransaction(ctx, sqlc.UpdateTransactionParams{
+	result, err := qtx.UpdateTransactionFull(ctx, sqlc.UpdateTransactionFullParams{
 		ID:              input.ID,
+		AccountID:       input.AccountID,
 		CategoryID:      input.CategoryID,
+		Type:            input.Type,
 		Amount:          input.Amount,
 		Currency:        input.Currency,
 		AmountBase:      amountBase,
