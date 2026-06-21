@@ -5,24 +5,28 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
 	"github.com/DigitLock/expense-tracker/internal/api/middleware"
 	"github.com/DigitLock/expense-tracker/internal/database/sqlc"
+	"github.com/DigitLock/expense-tracker/internal/domain"
 	"github.com/DigitLock/expense-tracker/internal/dto"
 	"github.com/DigitLock/expense-tracker/internal/repository"
+	"github.com/DigitLock/expense-tracker/internal/service/category"
 )
 
+// CategoryHandler is a thin REST adapter over the category service. The repo is
+// retained for read-only extras (Get, Restore) and the inactive-duplicate
+// restore-offer on Create (REST-only UX), which are outside the gRPC surface.
 type CategoryHandler struct {
+	svc          *category.Service
 	categoryRepo *repository.CategoryRepository
-	validate     *validator.Validate
 }
 
 func NewCategoryHandler(categoryRepo *repository.CategoryRepository) *CategoryHandler {
 	return &CategoryHandler{
+		svc:          category.New(categoryRepo),
 		categoryRepo: categoryRepo,
-		validate:     newValidator(),
 	}
 }
 
@@ -48,25 +52,17 @@ func (h *CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
 	includeInactive := r.URL.Query().Get("include_inactive") == "true"
 	typeFilter := r.URL.Query().Get("type")
 
-	var dbCategories []sqlc.Category
-	var err error
-
-	// Apply filters
-	if typeFilter != "" && (typeFilter == "income" || typeFilter == "expense") {
-		dbCategories, err = h.categoryRepo.ListByType(r.Context(), familyID, typeFilter)
-	} else if includeInactive {
-		dbCategories, err = h.categoryRepo.ListAllByFamily(r.Context(), familyID)
-	} else {
-		dbCategories, err = h.categoryRepo.ListByFamily(r.Context(), familyID)
-	}
-
+	categories, err := h.svc.List(r.Context(), familyID, typeFilter, includeInactive)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to fetch categories")
+		writeDomainError(w, err)
 		return
 	}
 
-	categories := mapCategories(dbCategories)
-	writeSuccess(w, http.StatusOK, dto.CategoryListResponse{Categories: categories})
+	resp := make([]dto.CategoryResponse, len(categories))
+	for i, c := range categories {
+		resp[i] = categoryToDTO(c)
+	}
+	writeSuccess(w, http.StatusOK, dto.CategoryListResponse{Categories: resp})
 }
 
 // Create godoc
@@ -80,6 +76,7 @@ func (h *CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
 // @Success      201 {object} dto.SuccessResponse{data=dto.CategoryResponse} "Category created successfully"
 // @Failure      400 {object} dto.ErrorResponse "Invalid request body or validation error"
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
+// @Failure      409 {object} dto.ErrorResponse "Category already exists (active or restorable inactive)"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
 // @Router       /categories [post]
 func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -95,87 +92,37 @@ func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.validate.Struct(req); err != nil {
-		writeValidationError(w, formatValidationErrors(err))
-		return
-	}
-
-	// Validate parent_id if provided
-	if req.ParentID != nil {
-		parent, err := h.categoryRepo.GetByID(r.Context(), *req.ParentID)
-		if err != nil {
-			writeValidationError(w, []dto.ValidationError{
-				{Field: "parent_id", Message: "Parent category not found"},
-			})
-			return
-		}
-		// Parent must belong to same family
-		if parent.FamilyID != familyID {
-			writeValidationError(w, []dto.ValidationError{
-				{Field: "parent_id", Message: "Parent category not found"},
-			})
-			return
-		}
-		// Parent must be same type
-		if parent.Type != req.Type {
-			writeValidationError(w, []dto.ValidationError{
-				{Field: "parent_id", Message: "Parent category must be the same type"},
-			})
-			return
-		}
-		// Enforce 2-level maximum hierarchy: parent must itself be a root category
-		if parent.ParentID.Valid {
-			writeError(w, http.StatusBadRequest, "HIERARCHY_LIMIT_EXCEEDED",
-				"Cannot create subcategory of a subcategory. Maximum 2 levels of hierarchy allowed (parent → child).")
-			return
-		}
-	}
-
-	// Checking for inactive duplicate BEFORE creating
-	inactiveCategory, err := h.categoryRepo.FindInactiveByName(
-		r.Context(),
-		familyID,
-		req.Name,
-		req.Type,
-		req.ParentID,
-	)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to check existing categories")
-		return
-	}
-
-	if inactiveCategory != nil {
-		// Found inactive category - return conflict with restore option
+	// REST-only UX: if a matching inactive category exists, offer to restore it
+	// instead of creating a duplicate.
+	if inactive, err := h.categoryRepo.FindInactiveByName(r.Context(), familyID, req.Name, req.Type, req.ParentID); err == nil && inactive != nil {
 		var parentID *uuid.UUID
-		if inactiveCategory.ParentID.Valid {
-			id := uuid.UUID(inactiveCategory.ParentID.Bytes)
+		if inactive.ParentID.Valid {
+			id := uuid.UUID(inactive.ParentID.Bytes)
 			parentID = &id
 		}
-
 		writeErrorWithData(w, http.StatusConflict, "CATEGORY_INACTIVE_EXISTS",
 			"A category with this name was previously deleted. Would you like to restore it?",
 			map[string]interface{}{
-				"inactive_category_id": inactiveCategory.ID,
-				"name":                 inactiveCategory.Name,
-				"type":                 inactiveCategory.Type,
+				"inactive_category_id": inactive.ID,
+				"name":                 inactive.Name,
+				"type":                 inactive.Type,
 				"parent_id":            parentID,
-				"deleted_at":           inactiveCategory.UpdatedAt,
+				"deleted_at":           inactive.UpdatedAt,
 			})
 		return
 	}
 
-	category, err := h.categoryRepo.Create(r.Context(), repository.CreateCategoryInput{
-		FamilyID: familyID,
+	cat, err := h.svc.Create(r.Context(), familyID, category.CreateCategoryInput{
 		Name:     req.Name,
 		Type:     req.Type,
-		ParentID: req.ParentID,
+		ParentID: uuidPtrToStr(req.ParentID),
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to create category")
+		writeDomainError(w, err)
 		return
 	}
 
-	writeSuccess(w, http.StatusCreated, mapCategory(category))
+	writeSuccess(w, http.StatusCreated, categoryToDTO(cat))
 }
 
 // Get godoc
@@ -204,19 +151,13 @@ func (h *CategoryHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	category, err := h.categoryRepo.GetByID(r.Context(), categoryID)
-	if err != nil {
+	cat, err := h.categoryRepo.GetByID(r.Context(), categoryID)
+	if err != nil || cat.FamilyID != familyID {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found")
 		return
 	}
 
-	// Category belongs to user's family
-	if category.FamilyID != familyID {
-		writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found")
-		return
-	}
-
-	writeSuccess(w, http.StatusOK, mapCategory(category))
+	writeSuccess(w, http.StatusOK, mapCategory(cat))
 }
 
 // Update godoc
@@ -231,7 +172,7 @@ func (h *CategoryHandler) Get(w http.ResponseWriter, r *http.Request) {
 // @Success      200 {object} dto.SuccessResponse{data=dto.CategoryResponse} "Category updated successfully"
 // @Failure      400 {object} dto.ErrorResponse "Invalid request body or validation error (e.g., circular parent reference)"
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
-// @Failure      404 {object} dto.ErrorResponse "Category not found or does not belong to user's family"
+// @Failure      404 {object} dto.ErrorResponse "Category not found"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
 // @Router       /categories/{id} [patch]
 func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -247,99 +188,23 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Category exists and belongs to family
-	existing, err := h.categoryRepo.GetByIDIncludingInactive(r.Context(), categoryID)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found")
-		return
-	}
-	if existing.FamilyID != familyID {
-		writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found")
-		return
-	}
-
 	var req dto.UpdateCategoryRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_JSON", "Invalid request body")
 		return
 	}
 
-	if err := h.validate.Struct(req); err != nil {
-		writeValidationError(w, formatValidationErrors(err))
-		return
-	}
-
-	// Validate parent_id if provided
-	if req.ParentID != nil {
-		// Can't be own parent
-		if *req.ParentID == categoryID {
-			writeValidationError(w, []dto.ValidationError{
-				{Field: "parent_id", Message: "Category cannot be its own parent"},
-			})
-			return
-		}
-
-		parent, err := h.categoryRepo.GetByID(r.Context(), *req.ParentID)
-		if err != nil {
-			writeValidationError(w, []dto.ValidationError{
-				{Field: "parent_id", Message: "Parent category not found"},
-			})
-			return
-		}
-		if parent.FamilyID != familyID {
-			writeValidationError(w, []dto.ValidationError{
-				{Field: "parent_id", Message: "Parent category not found"},
-			})
-			return
-		}
-		if parent.Type != existing.Type {
-			writeValidationError(w, []dto.ValidationError{
-				{Field: "parent_id", Message: "Parent category must be the same type"},
-			})
-			return
-		}
-		// Enforce 2-level maximum hierarchy: parent must itself be a root category
-		if parent.ParentID.Valid {
-			writeError(w, http.StatusBadRequest, "HIERARCHY_LIMIT_EXCEEDED",
-				"Cannot create subcategory of a subcategory. Maximum 2 levels of hierarchy allowed (parent → child).")
-			return
-		}
-		// If this category has children, moving it under a parent would create
-		// a 3rd level for those children. Block it.
-		hasChildren, err := h.categoryRepo.HasChildren(r.Context(), categoryID)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to validate category hierarchy")
-			return
-		}
-		if hasChildren {
-			writeError(w, http.StatusBadRequest, "HIERARCHY_LIMIT_EXCEEDED",
-				"Cannot move a parent category under another category. Maximum 2 levels of hierarchy allowed (parent → child).")
-			return
-		}
-	}
-
-	// Updated input
-	input := repository.UpdateCategoryInput{
-		ID:       categoryID,
-		FamilyID: familyID,
-	}
-	if req.Name != nil {
-		input.Name = req.Name
-	}
-	if req.ParentID != nil {
-		input.ParentID = req.ParentID
-	}
-	if req.IsActive != nil {
-		input.IsActive = req.IsActive
-	}
-
-	category, err := h.categoryRepo.Update(r.Context(), input)
+	cat, err := h.svc.Update(r.Context(), familyID, categoryID, category.UpdateCategoryInput{
+		Name:     req.Name,
+		ParentID: uuidPtrToStr(req.ParentID),
+		IsActive: req.IsActive,
+	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to update category")
+		writeDomainError(w, err)
 		return
 	}
 
-	writeSuccess(w, http.StatusOK, mapCategory(category))
+	writeSuccess(w, http.StatusOK, categoryToDTO(cat))
 }
 
 // Delete godoc
@@ -352,7 +217,8 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 // @Success      200 {object} dto.MessageResponse "Category deleted successfully"
 // @Failure      400 {object} dto.ErrorResponse "Invalid category ID format"
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
-// @Failure      404 {object} dto.ErrorResponse "Category not found or does not belong to user's family"
+// @Failure      404 {object} dto.ErrorResponse "Category not found"
+// @Failure      409 {object} dto.ErrorResponse "Category has subcategories or transactions"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
 // @Router       /categories/{id} [delete]
 func (h *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -368,32 +234,8 @@ func (h *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Category exists and belongs to family
-	existing, err := h.categoryRepo.GetByID(r.Context(), categoryID)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found")
-		return
-	}
-	if existing.FamilyID != familyID {
-		writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found")
-		return
-	}
-
-	// Block deletion if the category has ANY transactions (active or inactive).
-	// Prevents orphaned transaction records that would display as "Unknown" category.
-	hasTx, err := h.categoryRepo.HasTransactions(r.Context(), categoryID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to check category transactions")
-		return
-	}
-	if hasTx {
-		writeError(w, http.StatusBadRequest, "CATEGORY_HAS_TRANSACTIONS",
-			"Cannot delete category with existing transactions. Reassign transactions first.")
-		return
-	}
-
-	if err := h.categoryRepo.Delete(r.Context(), categoryID); err != nil {
-		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to delete category")
+	if err := h.svc.Delete(r.Context(), familyID, categoryID); err != nil {
+		writeDomainError(w, err)
 		return
 	}
 
@@ -426,19 +268,13 @@ func (h *CategoryHandler) Restore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify category belongs to family before restoring
 	existing, err := h.categoryRepo.GetByIDIncludingInactive(r.Context(), categoryID)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found")
-		return
-	}
-	if existing.FamilyID != familyID {
+	if err != nil || existing.FamilyID != familyID {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found")
 		return
 	}
 
-	// Restore the category
-	category, err := h.categoryRepo.Restore(r.Context(), categoryID)
+	cat, err := h.categoryRepo.Restore(r.Context(), categoryID)
 	if err != nil {
 		if err.Error() == "category not found or already active" {
 			writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found or already active")
@@ -448,19 +284,39 @@ func (h *CategoryHandler) Restore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeSuccess(w, http.StatusOK, mapCategory(*category))
+	writeSuccess(w, http.StatusOK, mapCategory(*cat))
 }
 
 // Helper functions
 
+func uuidPtrToStr(id *uuid.UUID) *string {
+	if id == nil {
+		return nil
+	}
+	s := id.String()
+	return &s
+}
+
+// categoryToDTO maps a service-layer domain.Category to the REST DTO.
+func categoryToDTO(c domain.Category) dto.CategoryResponse {
+	return dto.CategoryResponse{
+		ID:        c.ID,
+		Name:      c.Name,
+		Type:      c.Type,
+		ParentID:  c.ParentID,
+		IsActive:  c.IsActive,
+		CreatedAt: c.CreatedAt,
+		UpdatedAt: c.UpdatedAt,
+	}
+}
+
+// mapCategory maps a repo sqlc.Category to the REST DTO (used by Get/Restore).
 func mapCategory(c sqlc.Category) dto.CategoryResponse {
 	var parentID *uuid.UUID
 	if c.ParentID.Valid {
-		// Convert [16]byte to uuid.UUID
 		id := uuid.UUID(c.ParentID.Bytes)
 		parentID = &id
 	}
-
 	return dto.CategoryResponse{
 		ID:        c.ID,
 		Name:      c.Name,
@@ -472,25 +328,15 @@ func mapCategory(c sqlc.Category) dto.CategoryResponse {
 	}
 }
 
-func mapCategories(categories []sqlc.Category) []dto.CategoryResponse {
-	result := make([]dto.CategoryResponse, len(categories))
-	for i, c := range categories {
-		result[i] = mapCategory(c)
-	}
-	return result
-}
-
 func writeErrorWithData(w http.ResponseWriter, status int, code, message string, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": false,
 		"error": map[string]interface{}{
 			"code":    code,
 			"message": message,
 			"data":    data,
 		},
-	}); err != nil {
-	}
+	})
 }
