@@ -9,15 +9,19 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 
 	"github.com/DigitLock/expense-tracker/internal/auth"
+	"github.com/DigitLock/expense-tracker/internal/domain"
 	"github.com/DigitLock/expense-tracker/internal/dto"
 	"github.com/DigitLock/expense-tracker/internal/repository"
+	authsvc "github.com/DigitLock/expense-tracker/internal/service/auth"
 )
 
 type AuthHandler struct {
 	userRepo   *repository.UserRepository
 	jwtService *auth.JWTService
+	authSvc    *authsvc.Service
 	validate   *validator.Validate
 }
 
@@ -25,6 +29,7 @@ func NewAuthHandler(userRepo *repository.UserRepository, jwtService *auth.JWTSer
 	return &AuthHandler{
 		userRepo:   userRepo,
 		jwtService: jwtService,
+		authSvc:    authsvc.New(userRepo, jwtService),
 		validate:   newValidator(),
 	}
 }
@@ -55,34 +60,27 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.userRepo.Authenticate(r.Context(), req.Email, req.Password)
+	result, err := h.authSvc.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
-		// Don't reveal whether email exists or password is wrong
-		writeError(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "Invalid email or password")
-		return
-	}
-
-	if !user.IsActive {
-		writeError(w, http.StatusUnauthorized, "USER_INACTIVE", "User account is inactive")
-		return
-	}
-
-	// Generate JWT token
-	token, _, err := h.jwtService.GenerateToken(user.ID, user.FamilyID, user.Email, user.Name)
-	if err != nil {
+		if errors.Is(err, domain.ErrUnauthenticated) {
+			// Don't reveal whether email exists or password is wrong (unchanged REST contract).
+			writeError(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "Invalid email or password")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "TOKEN_ERROR", "Failed to generate token")
 		return
 	}
 
+	userID, _ := uuid.Parse(result.User.ID)
 	response := dto.LoginResponse{
-		Token: token,
+		Token: result.Token,
 		User: dto.UserInfo{
-			ID:       user.ID,
-			Email:    user.Email,
-			Name:     user.Name,
-			FamilyID: user.FamilyID,
+			ID:       userID,
+			Email:    result.User.Email,
+			Name:     result.User.Name,
+			FamilyID: result.User.FamilyID,
 		},
-		ExpiresIn: h.jwtService.GetExpirationSeconds(),
+		ExpiresIn: result.ExpiresIn,
 	}
 
 	writeSuccess(w, http.StatusOK, response)
