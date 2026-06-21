@@ -595,23 +595,27 @@ func (q *Queries) ListTransactionsPaginated(ctx context.Context, arg ListTransac
 	return items, nil
 }
 
-const updateTransaction = `-- name: UpdateTransaction :one
+const updateTransactionFull = `-- name: UpdateTransactionFull :one
 UPDATE transactions
 SET
-    category_id = $2,
-    amount = $3,
-    currency = $4,
-    amount_base = $5,
-    description = $6,
-    transaction_date = $7,
+    account_id = $2,
+    category_id = $3,
+    type = $4,
+    amount = $5,
+    currency = $6,
+    amount_base = $7,
+    description = $8,
+    transaction_date = $9,
     updated_at = NOW()
 WHERE id = $1 AND is_active = true
 RETURNING id, family_id, account_id, category_id, type, amount, currency, amount_base, description, transaction_date, created_by, created_at, updated_at, is_active
 `
 
-type UpdateTransactionParams struct {
+type UpdateTransactionFullParams struct {
 	ID              uuid.UUID       `json:"id"`
+	AccountID       uuid.UUID       `json:"account_id"`
 	CategoryID      uuid.UUID       `json:"category_id"`
+	Type            string          `json:"type"`
 	Amount          decimal.Decimal `json:"amount"`
 	Currency        string          `json:"currency"`
 	AmountBase      decimal.Decimal `json:"amount_base"`
@@ -619,10 +623,15 @@ type UpdateTransactionParams struct {
 	TransactionDate pgtype.Date     `json:"transaction_date"`
 }
 
-func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (Transaction, error) {
-	row := q.db.QueryRow(ctx, updateTransaction,
+// Full update including account_id and type (supports moving a transaction
+// between accounts / changing its type). The balance trigger recalculates both
+// the old and new account (migration 014).
+func (q *Queries) UpdateTransactionFull(ctx context.Context, arg UpdateTransactionFullParams) (Transaction, error) {
+	row := q.db.QueryRow(ctx, updateTransactionFull,
 		arg.ID,
+		arg.AccountID,
 		arg.CategoryID,
+		arg.Type,
 		arg.Amount,
 		arg.Currency,
 		arg.AmountBase,

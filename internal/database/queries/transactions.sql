@@ -40,15 +40,20 @@ INSERT INTO transactions (
          )
 RETURNING *;
 
--- name: UpdateTransaction :one
+-- name: UpdateTransactionFull :one
+-- Full update including account_id and type (supports moving a transaction
+-- between accounts / changing its type). The balance trigger recalculates both
+-- the old and new account (migration 014).
 UPDATE transactions
 SET
-    category_id = $2,
-    amount = $3,
-    currency = $4,
-    amount_base = $5,
-    description = $6,
-    transaction_date = $7,
+    account_id = $2,
+    category_id = $3,
+    type = $4,
+    amount = $5,
+    currency = $6,
+    amount_base = $7,
+    description = $8,
+    transaction_date = $9,
     updated_at = NOW()
 WHERE id = $1 AND is_active = true
 RETURNING *;

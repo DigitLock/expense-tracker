@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package expense_tracker.v1;
+
+option go_package = "github.com/DigitLock/expense-tracker/internal/grpc/pb";
+
+// DeleteResponse is the shared response for soft-delete RPCs across services
+// (Account/Transaction/Category).
+message DeleteResponse {
+  bool success = 1;
+  string message = 2;
+}

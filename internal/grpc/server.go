@@ -29,6 +29,9 @@ func NewServer(repos *repository.Repositories, jwtService *auth.JWTService, port
 
 	pb.RegisterAccountServiceServer(grpcServer, grpchandlers.NewAccountHandler(repos))
 	pb.RegisterTransactionServiceServer(grpcServer, grpchandlers.NewTransactionHandler(repos))
+	pb.RegisterCategoryServiceServer(grpcServer, grpchandlers.NewCategoryHandler(repos))
+	pb.RegisterReportServiceServer(grpcServer, grpchandlers.NewReportHandler(repos))
+	pb.RegisterAuthServiceServer(grpcServer, grpchandlers.NewAuthHandler(repos, jwtService))
 
 	reflection.Register(grpcServer)
 	

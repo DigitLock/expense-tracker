@@ -2,27 +2,30 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/google/uuid"
-
+	"github.com/DigitLock/expense-tracker/internal/domain"
+	"github.com/DigitLock/expense-tracker/internal/grpc/errmap"
 	"github.com/DigitLock/expense-tracker/internal/grpc/interceptors"
 	pb "github.com/DigitLock/expense-tracker/internal/grpc/pb"
 	"github.com/DigitLock/expense-tracker/internal/repository"
+	"github.com/DigitLock/expense-tracker/internal/service/transaction"
 )
 
+// TransactionHandler is a thin gRPC adapter over the transaction service.
 type TransactionHandler struct {
 	pb.UnimplementedTransactionServiceServer
-	repos *repository.Repositories
+	svc *transaction.Service
 }
 
 func NewTransactionHandler(repos *repository.Repositories) *TransactionHandler {
-	return &TransactionHandler{repos: repos}
+	return &TransactionHandler{svc: transaction.New(repos.Transactions, repos.Accounts, repos.Categories)}
 }
 
 func (h *TransactionHandler) ListTransactions(ctx context.Context, req *pb.ListTransactionsRequest) (*pb.ListTransactionsResponse, error) {
@@ -31,89 +34,139 @@ func (h *TransactionHandler) ListTransactions(ctx context.Context, req *pb.ListT
 		return nil, status.Error(codes.Unauthenticated, "missing family context")
 	}
 
-	page := req.Page
-	if page <= 0 {
-		page = 1
+	filter := transaction.ListFilter{
+		Type:    req.Type,
+		Page:    int(req.GetPage()),
+		PerPage: int(req.GetPerPage()),
 	}
-	perPage := req.PerPage
-	if perPage <= 0 {
-		perPage = 20
-	}
-	offset := (page - 1) * perPage
-
-	filter := repository.TransactionFilter{
-		FamilyID: familyID,
-		Limit:    perPage,
-		Offset:   offset,
-	}
-
-	if req.Type != nil {
-		filter.Type = req.Type
-	}
-
 	if req.AccountId != nil {
-		accountID, err := uuid.Parse(*req.AccountId)
+		accountID, err := uuid.Parse(req.GetAccountId())
 		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid account_id: %v", err)
+			return nil, status.Error(codes.InvalidArgument, "invalid account_id")
 		}
 		filter.AccountID = &accountID
 	}
-
 	if req.Month != nil {
-		start, end, err := parseMonth(*req.Month)
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid month format, expected YYYY-MM: %v", err)
+		if _, err := time.Parse("2006-01", req.GetMonth()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid month format, expected YYYY-MM")
 		}
-		filter.StartDate = &start
-		filter.EndDate = &end
+		filter.Month = req.GetMonth()
 	}
 
-	transactions, total, err := h.repos.Transactions.ListFiltered(ctx, filter)
+	result, err := h.svc.List(ctx, familyID, filter)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to list transactions: %v", err)
+		return nil, errmap.ToStatus(err).Err()
 	}
 
-	pbTransactions := make([]*pb.Transaction, 0, len(transactions))
-	for _, t := range transactions {
-		amount, _ := t.Amount.Float64()
-		amountBase, _ := t.AmountBase.Float64()
-
-		pbTransactions = append(pbTransactions, &pb.Transaction{
-			Id:           t.ID.String(),
-			Type:         t.Type,
-			Amount:       amount,
-			Currency:     t.Currency,
-			AmountBase:   amountBase,
-			BaseCurrency: "RSD",
-			AccountId:    t.AccountID.String(),
-			CategoryId:   t.CategoryID.String(),
-			CategoryName: "",
-			Description:  t.Description.String,
-			Date:         t.TransactionDate.Time.Format("2006-01-02"),
-			CreatedAt:    timestamppb.New(t.CreatedAt),
-			UpdatedAt:    timestamppb.New(t.UpdatedAt),
-		})
+	pbTxs := make([]*pb.Transaction, len(result.Transactions))
+	for i, t := range result.Transactions {
+		pbTxs[i] = toPbTransaction(t)
 	}
-
-	totalPages := int32(0)
-	if total > 0 {
-		totalPages = int32((total + int64(perPage) - 1) / int64(perPage))
-	}
-
 	return &pb.ListTransactionsResponse{
-		Transactions: pbTransactions,
-		Page:         page,
-		PerPage:      perPage,
-		Total:        int32(total),
-		TotalPages:   totalPages,
+		Transactions: pbTxs,
+		Page:         int32(result.Page),
+		PerPage:      int32(result.PerPage),
+		Total:        int32(result.Total),
+		TotalPages:   int32(result.TotalPages),
 	}, nil
 }
 
-func parseMonth(month string) (time.Time, time.Time, error) {
-	start, err := time.Parse("2006-01", month)
+func (h *TransactionHandler) CreateTransaction(ctx context.Context, req *pb.CreateTransactionRequest) (*pb.TransactionResponse, error) {
+	familyID, userID, err := identity(ctx)
 	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("expected YYYY-MM format: %w", err)
+		return nil, err
 	}
-	end := start.AddDate(0, 1, 0).Add(-time.Second)
-	return start, end, nil
+
+	tx, serr := h.svc.Create(ctx, familyID, userID, transaction.CreateTransactionInput{
+		Type:        req.GetType(),
+		Amount:      decimal.NewFromFloat(req.GetAmount()).Round(2), // double -> decimal at the edge
+		Currency:    req.GetCurrency(),
+		CategoryID:  req.GetCategoryId(),
+		AccountID:   req.GetAccountId(),
+		Description: req.GetDescription(),
+		Date:        req.GetDate(),
+	})
+	if serr != nil {
+		return nil, errmap.ToStatus(serr).Err()
+	}
+	return &pb.TransactionResponse{Transaction: toPbTransaction(tx)}, nil
+}
+
+func (h *TransactionHandler) UpdateTransaction(ctx context.Context, req *pb.UpdateTransactionRequest) (*pb.TransactionResponse, error) {
+	familyID, userID, err := identity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, perr := uuid.Parse(req.GetId())
+	if perr != nil {
+		return nil, errmap.ToStatus(domain.Errorf(domain.ErrInvalidArgument, "invalid transaction id")).Err()
+	}
+
+	in := transaction.UpdateTransactionInput{
+		Type:        req.Type,
+		Currency:    req.Currency,
+		CategoryID:  req.CategoryId,
+		AccountID:   req.AccountId,
+		Description: req.Description,
+		Date:        req.Date,
+	}
+	if req.Amount != nil {
+		amt := decimal.NewFromFloat(req.GetAmount()).Round(2)
+		in.Amount = &amt
+	}
+
+	tx, serr := h.svc.Update(ctx, familyID, userID, id, in)
+	if serr != nil {
+		return nil, errmap.ToStatus(serr).Err()
+	}
+	return &pb.TransactionResponse{Transaction: toPbTransaction(tx)}, nil
+}
+
+func (h *TransactionHandler) DeleteTransaction(ctx context.Context, req *pb.DeleteTransactionRequest) (*pb.DeleteResponse, error) {
+	familyID, userID, err := identity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, perr := uuid.Parse(req.GetId())
+	if perr != nil {
+		return nil, errmap.ToStatus(domain.Errorf(domain.ErrInvalidArgument, "invalid transaction id")).Err()
+	}
+
+	if serr := h.svc.Delete(ctx, familyID, userID, id); serr != nil {
+		return nil, errmap.ToStatus(serr).Err()
+	}
+	return &pb.DeleteResponse{Success: true, Message: "Transaction deleted successfully"}, nil
+}
+
+// identity extracts family and user IDs from the auth context.
+func identity(ctx context.Context) (uuid.UUID, uuid.UUID, error) {
+	familyID, ok := interceptors.FamilyIDFromContext(ctx)
+	if !ok {
+		return uuid.Nil, uuid.Nil, status.Error(codes.Unauthenticated, "missing family context")
+	}
+	userID, ok := interceptors.UserIDFromContext(ctx)
+	if !ok {
+		return uuid.Nil, uuid.Nil, status.Error(codes.Unauthenticated, "missing user context")
+	}
+	return familyID, userID, nil
+}
+
+func toPbTransaction(t domain.Transaction) *pb.Transaction {
+	amount, _ := t.Amount.Float64()
+	amountBase, _ := t.AmountBase.Float64()
+	return &pb.Transaction{
+		Id:           t.ID.String(),
+		Type:         t.Type,
+		Amount:       amount,
+		Currency:     t.Currency,
+		AmountBase:   amountBase,
+		BaseCurrency: t.BaseCurrency,
+		AccountId:    t.AccountID.String(),
+		CategoryId:   t.CategoryID.String(),
+		CategoryName: "", // not part of the domain; left empty (matches prior behavior)
+		Description:  t.Description,
+		Date:         t.Date.Format("2006-01-02"),
+		CreatedAt:    timestamppb.New(t.CreatedAt),
+		UpdatedAt:    timestamppb.New(t.UpdatedAt),
+	}
 }

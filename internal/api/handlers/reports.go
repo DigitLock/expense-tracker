@@ -2,19 +2,25 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
 	"github.com/DigitLock/expense-tracker/internal/api/middleware"
 	"github.com/DigitLock/expense-tracker/internal/dto"
 	"github.com/DigitLock/expense-tracker/internal/repository"
+	"github.com/DigitLock/expense-tracker/internal/service/report"
 )
 
+// ReportHandler is a thin REST adapter over the report query service. The core
+// report values come from the service (guaranteeing REST↔gRPC parity); the
+// monthly response's richer fields (breakdowns, account balances, savings rate)
+// are assembled here from the same repos + shared currency conversion, so the
+// REST response shape is unchanged.
 type ReportHandler struct {
+	svc              *report.Service
 	transactionRepo  *repository.TransactionRepository
 	accountRepo      *repository.AccountRepository
 	categoryRepo     *repository.CategoryRepository
@@ -28,6 +34,7 @@ func NewReportHandler(
 	exchangeRateRepo *repository.ExchangeRateRepository,
 ) *ReportHandler {
 	return &ReportHandler{
+		svc:              report.New(transactionRepo, categoryRepo, exchangeRateRepo),
 		transactionRepo:  transactionRepo,
 		accountRepo:      accountRepo,
 		categoryRepo:     categoryRepo,
@@ -35,62 +42,17 @@ func NewReportHandler(
 	}
 }
 
-// currencyConversion holds the resolved target currency for a report and how
-// to convert RSD amount_base sums into it.
-type currencyConversion struct {
-	currency string          // currency actually used in the response
-	rate     decimal.Decimal // RSD per 1 unit of currency (only when convert == true)
-	convert  bool
-	note     string // set when a non-RSD currency was requested but no rate was found
-}
-
-// apply converts an RSD amount into the resolved currency. Amounts stored as
-// amount_base are RSD; the rate is "RSD per 1 unit", so target = rsd / rate.
-func (c currencyConversion) apply(rsd decimal.Decimal) decimal.Decimal {
-	if !c.convert {
-		return rsd
-	}
-	return rsd.Div(c.rate).Round(2)
-}
-
-// resolveCurrency parses the requested currency and looks up the latest RSD->X
-// rate. Unknown currencies fall back to RSD. When a non-RSD currency is
-// requested but no rate exists, it falls back to RSD with an explanatory note.
-func (h *ReportHandler) resolveCurrency(ctx context.Context, requested string) currencyConversion {
-	requested = strings.ToUpper(strings.TrimSpace(requested))
-	switch requested {
-	case "EUR", "USD":
-		// supported targets to attempt conversion for
-	default:
-		// "RSD", "" or anything unrecognized -> no conversion
-		return currencyConversion{currency: "RSD"}
-	}
-
-	// Rates are stored as from=<foreign>, to=RSD (rate = RSD per 1 foreign unit).
-	rate, err := h.exchangeRateRepo.GetLatestRate(ctx, requested, "RSD", time.Now())
-	if err != nil || rate.Rate.IsZero() {
-		return currencyConversion{
-			currency: "RSD",
-			note:     fmt.Sprintf("Requested %s, but no exchange rate available; showing RSD", requested),
-		}
-	}
-
-	return currencyConversion{currency: requested, rate: rate.Rate, convert: true}
-}
-
 // SpendingByCategory godoc
 // @Summary      Spending by category report
-// @Description  Generate detailed spending analysis grouped by category for a specified date range with percentages and averages
 // @Tags         Reports
 // @Produce      json
 // @Security     BearerAuth
-// @Param        start_date query string false "Start date in YYYY-MM-DD format" example(2025-11-01)
-// @Param        end_date query string false "End date in YYYY-MM-DD format" example(2025-11-30)
-// @Param        type query string false "Transaction type: income or expense" Enums(income, expense) default(expense)
-// @Success      200 {object} dto.SuccessResponse{data=dto.SpendingByCategoryResponse} "Spending analysis report"
-// @Failure      400 {object} dto.ErrorResponse "Invalid query parameters"
-// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
-// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Param        start_date query string false "Start date YYYY-MM-DD"
+// @Param        end_date query string false "End date YYYY-MM-DD"
+// @Param        type query string false "income or expense" default(expense)
+// @Success      200 {object} dto.SuccessResponse{data=dto.SpendingByCategoryResponse}
+// @Failure      400 {object} dto.ErrorResponse
+// @Failure      401 {object} dto.ErrorResponse
 // @Router       /reports/spending-by-category [get]
 func (h *ReportHandler) SpendingByCategory(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
@@ -99,104 +61,51 @@ func (h *ReportHandler) SpendingByCategory(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Parse parameters
-	now := time.Now()
-	startDate := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-	endDate := now
-
-	if sd := r.URL.Query().Get("start_date"); sd != "" {
-		if parsed, err := time.Parse("2006-01-02", sd); err == nil {
-			startDate = parsed
-		}
-	}
-
-	if ed := r.URL.Query().Get("end_date"); ed != "" {
-		if parsed, err := time.Parse("2006-01-02", ed); err == nil {
-			endDate = parsed
-		}
-	}
-
-	transactionType := r.URL.Query().Get("type")
-	if transactionType != "income" && transactionType != "expense" {
-		transactionType = "expense"
-	}
-
-	conv := h.resolveCurrency(r.Context(), r.URL.Query().Get("currency"))
-
-	// Summary by category
-	summaries, err := h.transactionRepo.GetSummaryByCategory(r.Context(), familyID, transactionType, startDate, endDate)
+	rep, err := h.svc.SpendingByCategory(r.Context(), familyID, report.SpendingParams{
+		StartDate: r.URL.Query().Get("start_date"),
+		EndDate:   r.URL.Query().Get("end_date"),
+		Currency:  r.URL.Query().Get("currency"),
+		Type:      r.URL.Query().Get("type"),
+	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to generate report")
+		writeDomainError(w, err)
 		return
 	}
 
-	// Calculate totals (in RSD amount_base) and build response
-	var totalAmount decimal.Decimal
-	var totalTransactions int
-
-	for _, s := range summaries {
-		totalAmount = totalAmount.Add(s.Total)
-		totalTransactions += int(s.Count)
-	}
-
-	// Build category spending list. Percentages are ratios of RSD sums and are
-	// unaffected by currency conversion; monetary amounts are converted.
-	categorySpending := make([]dto.CategorySpending, len(summaries))
-	for i, s := range summaries {
-		categoryName := "Unknown"
-		if cat, err := h.categoryRepo.GetByID(r.Context(), s.CategoryID); err == nil {
-			categoryName = cat.Name
-		}
-
-		percentage := decimal.Zero
-		if !totalAmount.IsZero() {
-			percentage = s.Total.Div(totalAmount).Mul(decimal.NewFromInt(100)).Round(1)
-		}
-
-		avgPerTransaction := decimal.Zero
-		if s.Count > 0 {
-			avgPerTransaction = conv.apply(s.Total.Div(decimal.NewFromInt(s.Count)).Round(2))
-		}
-
-		categorySpending[i] = dto.CategorySpending{
-			CategoryID:            s.CategoryID,
-			CategoryName:          categoryName,
-			TotalAmount:           conv.apply(s.Total),
-			TransactionCount:      int(s.Count),
-			Percentage:            percentage,
-			AveragePerTransaction: avgPerTransaction,
+	categories := make([]dto.CategorySpending, len(rep.Categories))
+	for i, c := range rep.Categories {
+		categories[i] = dto.CategorySpending{
+			CategoryID:            c.CategoryID,
+			CategoryName:          c.CategoryName,
+			TotalAmount:           c.TotalAmount,
+			TransactionCount:      c.TransactionCount,
+			Percentage:            c.Percentage,
+			AveragePerTransaction: c.AveragePerTransaction,
 		}
 	}
 
-	response := dto.SpendingByCategoryResponse{
-		ReportType: "spending_by_category",
-		Period: dto.ReportPeriod{
-			StartDate: startDate.Format("2006-01-02"),
-			EndDate:   endDate.Format("2006-01-02"),
-		},
-		Currency:           conv.currency,
-		TransactionType:    transactionType,
-		SpendingByCategory: categorySpending,
-		TotalAmount:        conv.apply(totalAmount),
-		TotalTransactions:  totalTransactions,
-		GeneratedAt:        time.Now().UTC(),
-		CurrencyNote:       conv.note,
-	}
-
-	writeSuccess(w, http.StatusOK, response)
+	writeSuccess(w, http.StatusOK, dto.SpendingByCategoryResponse{
+		ReportType:         rep.ReportType,
+		Period:             dto.ReportPeriod{StartDate: rep.Period.StartDate, EndDate: rep.Period.EndDate},
+		Currency:           rep.Currency,
+		TransactionType:    rep.TransactionType,
+		SpendingByCategory: categories,
+		TotalAmount:        rep.TotalAmount,
+		TotalTransactions:  rep.TotalTransactions,
+		GeneratedAt:        rep.GeneratedAt,
+		CurrencyNote:       rep.CurrencyNote,
+	})
 }
 
 // MonthlySummary godoc
 // @Summary      Monthly financial summary
-// @Description  Generate comprehensive monthly financial report including income, expenses, net savings, category breakdowns, and account balances
 // @Tags         Reports
 // @Produce      json
 // @Security     BearerAuth
-// @Param        month query string false "Month in YYYY-MM format (defaults to current month)" example(2025-11)
-// @Success      200 {object} dto.SuccessResponse{data=dto.MonthlySummaryResponse} "Monthly financial summary"
-// @Failure      400 {object} dto.ErrorResponse "Invalid query parameters"
-// @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
-// @Failure      500 {object} dto.ErrorResponse "Internal server error"
+// @Param        month query string false "Month YYYY-MM (defaults to current)"
+// @Success      200 {object} dto.SuccessResponse{data=dto.MonthlySummaryResponse}
+// @Failure      400 {object} dto.ErrorResponse
+// @Failure      401 {object} dto.ErrorResponse
 // @Router       /reports/monthly-summary [get]
 func (h *ReportHandler) MonthlySummary(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
@@ -205,100 +114,69 @@ func (h *ReportHandler) MonthlySummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now()
-	year, month := now.Year(), now.Month()
-
-	if m := r.URL.Query().Get("month"); m != "" {
-		if parsed, err := time.Parse("2006-01", m); err == nil {
-			year, month = parsed.Year(), parsed.Month()
-		}
-	}
-
-	startDate := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
-	endDate := startDate.AddDate(0, 1, -1) // Last day of month
-
-	conv := h.resolveCurrency(r.Context(), r.URL.Query().Get("currency"))
-
-	// Summary by type (income/expense totals)
-	typeSummaries, err := h.transactionRepo.GetSummaryByType(r.Context(), familyID, startDate, endDate)
+	currency := r.URL.Query().Get("currency")
+	core, err := h.svc.MonthlySummary(r.Context(), familyID, r.URL.Query().Get("month"), currency)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "Failed to generate report")
+		writeDomainError(w, err)
 		return
 	}
 
-	// Extract income and expense totals
-	var totalIncome, totalExpenses decimal.Decimal
-	var incomeCount, expenseCount int
+	// Period derived from the (validated) month for the breakdown queries.
+	start, _ := time.Parse("2006-01", core.Month)
+	end := start.AddDate(0, 1, -1)
+	conv := report.ResolveCurrency(r.Context(), h.exchangeRateRepo, currency)
 
-	for _, s := range typeSummaries {
-		if s.Type == "income" {
-			totalIncome = s.Total
-			incomeCount = int(s.Count)
-		} else if s.Type == "expense" {
-			totalExpenses = s.Total
-			expenseCount = int(s.Count)
-		}
-	}
-
-	netSavings := totalIncome.Sub(totalExpenses)
 	savingsRate := decimal.Zero
-	if !totalIncome.IsZero() {
-		savingsRate = netSavings.Div(totalIncome).Mul(decimal.NewFromInt(100)).Round(1)
+	if !core.Income.IsZero() {
+		savingsRate = core.NetBalance.Div(core.Income).Mul(decimal.NewFromInt(100)).Round(1)
 	}
 
-	// Income breakdown by category
-	incomeSummaries, _ := h.transactionRepo.GetSummaryByCategory(r.Context(), familyID, "income", startDate, endDate)
-	incomeBreakdown := make(map[string]decimal.Decimal)
-	for _, s := range incomeSummaries {
-		if cat, err := h.categoryRepo.GetByID(r.Context(), s.CategoryID); err == nil {
-			incomeBreakdown[cat.Name] = conv.apply(s.Total)
-		}
-	}
-
-	// Expense breakdown by category
-	expenseSummaries, _ := h.transactionRepo.GetSummaryByCategory(r.Context(), familyID, "expense", startDate, endDate)
-	expenseBreakdown := make(map[string]decimal.Decimal)
-	for _, s := range expenseSummaries {
-		if cat, err := h.categoryRepo.GetByID(r.Context(), s.CategoryID); err == nil {
-			expenseBreakdown[cat.Name] = conv.apply(s.Total)
-		}
-	}
-
-	// Account balances are stored in each account's native currency (not
-	// amount_base), so they must NOT be currency-converted here — doing so
-	// would double-convert EUR accounts. Reported as-is.
-	accounts, _ := h.accountRepo.ListByFamily(r.Context(), familyID)
-	accountBalances := make(map[string]decimal.Decimal)
-	var totalBalance decimal.Decimal
-	for _, acc := range accounts {
-		accountBalances[acc.Name] = acc.CurrentBalance
-		totalBalance = totalBalance.Add(acc.CurrentBalance)
-	}
-
-	response := dto.MonthlySummaryResponse{
+	writeSuccess(w, http.StatusOK, dto.MonthlySummaryResponse{
 		ReportType: "monthly_summary",
-		Month:      startDate.Format("2006-01"),
-		Currency:   conv.currency,
+		Month:      core.Month,
+		Currency:   core.Currency,
 		Summary: dto.MonthlySummary{
-			TotalIncome:   conv.apply(totalIncome),
-			TotalExpenses: conv.apply(totalExpenses),
-			NetSavings:    conv.apply(netSavings),
-			SavingsRate:   savingsRate, // percentage — unaffected by conversion
+			TotalIncome:   core.Income,
+			TotalExpenses: core.Expenses,
+			NetSavings:    core.NetBalance,
+			SavingsRate:   savingsRate,
 		},
-		IncomeBreakdown:  incomeBreakdown,
-		ExpenseBreakdown: expenseBreakdown,
-		AccountBalances: dto.AccountBalances{
-			Accounts: accountBalances,
-			Total:    totalBalance,
-		},
+		IncomeBreakdown:  h.breakdown(r.Context(), familyID, "income", start, end, conv),
+		ExpenseBreakdown: h.breakdown(r.Context(), familyID, "expense", start, end, conv),
+		AccountBalances:  h.accountBalances(r.Context(), familyID),
 		TransactionCounts: dto.TransactionCounts{
-			IncomeTransactions:  incomeCount,
-			ExpenseTransactions: expenseCount,
-			TotalTransactions:   incomeCount + expenseCount,
+			IncomeTransactions:  core.IncomeCount,
+			ExpenseTransactions: core.ExpenseCount,
+			TotalTransactions:   core.IncomeCount + core.ExpenseCount,
 		},
-		GeneratedAt:  time.Now().UTC(),
-		CurrencyNote: conv.note,
-	}
+		GeneratedAt:  core.GeneratedAt,
+		CurrencyNote: conv.Note,
+	})
+}
 
-	writeSuccess(w, http.StatusOK, response)
+// breakdown builds a category-name → converted-amount map for a type/period.
+func (h *ReportHandler) breakdown(ctx context.Context, familyID uuid.UUID, txType string, start, end time.Time, conv report.Conversion) map[string]decimal.Decimal {
+	out := make(map[string]decimal.Decimal)
+	summaries, err := h.transactionRepo.GetSummaryByCategory(ctx, familyID, txType, start, end)
+	if err != nil {
+		return out
+	}
+	for _, s := range summaries {
+		if cat, err := h.categoryRepo.GetByID(ctx, s.CategoryID); err == nil {
+			out[cat.Name] = conv.Apply(s.Total)
+		}
+	}
+	return out
+}
+
+// accountBalances returns native (unconverted) current balances per account.
+func (h *ReportHandler) accountBalances(ctx context.Context, familyID uuid.UUID) dto.AccountBalances {
+	accounts, _ := h.accountRepo.ListByFamily(ctx, familyID)
+	balances := make(map[string]decimal.Decimal)
+	var total decimal.Decimal
+	for _, acc := range accounts {
+		balances[acc.Name] = acc.CurrentBalance
+		total = total.Add(acc.CurrentBalance)
+	}
+	return dto.AccountBalances{Accounts: balances, Total: total}
 }

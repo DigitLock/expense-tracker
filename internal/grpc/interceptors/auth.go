@@ -20,8 +20,19 @@ const (
 	ContextKeyFamilyID contextKey = "family_id"
 )
 
+// publicMethods are exempt from JWT auth: the AuthService Login/ValidateToken
+// RPCs are how clients obtain/verify a token. Every other method stays guarded.
+var publicMethods = map[string]bool{
+	"/expense_tracker.v1.AuthService/Login":         true,
+	"/expense_tracker.v1.AuthService/ValidateToken": true,
+}
+
 func AuthInterceptor(jwtService *auth.JWTService) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		if publicMethods[info.FullMethod] {
+			return handler(ctx, req)
+		}
+
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
 			return nil, status.Error(codes.Unauthenticated, "missing metadata")
@@ -51,5 +62,10 @@ func AuthInterceptor(jwtService *auth.JWTService) grpc.UnaryServerInterceptor {
 
 func FamilyIDFromContext(ctx context.Context) (uuid.UUID, bool) {
 	id, ok := ctx.Value(ContextKeyFamilyID).(uuid.UUID)
+	return id, ok
+}
+
+func UserIDFromContext(ctx context.Context) (uuid.UUID, bool) {
+	id, ok := ctx.Value(ContextKeyUserID).(uuid.UUID)
 	return id, ok
 }

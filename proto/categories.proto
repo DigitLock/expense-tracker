@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package expense_tracker.v1;
+
+option go_package = "github.com/DigitLock/expense-tracker/internal/grpc/pb";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto"; // for the shared DeleteResponse message
+
+service CategoryService {
+  rpc ListCategories(ListCategoriesRequest) returns (ListCategoriesResponse);
+  rpc CreateCategory(CreateCategoryRequest) returns (CategoryResponse);
+  rpc UpdateCategory(UpdateCategoryRequest) returns (CategoryResponse);
+  rpc DeleteCategory(DeleteCategoryRequest) returns (DeleteResponse);
+}
+
+message ListCategoriesRequest {
+  optional string type       = 1;   // Optional: "income" or "expense"
+  optional string parent_id  = 2;   // Optional: filter by parent category
+  bool include_inactive      = 3;   // Optional: default false
+}
+
+message ListCategoriesResponse {
+  repeated Category categories = 1;
+  int32 total = 2;
+}
+
+message Category {
+  string id        = 1;
+  string name      = 2;
+  string type      = 3;           // "income" or "expense"
+  string parent_id = 4;           // empty if root category
+  bool   is_active = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message CreateCategoryRequest {
+  string name      = 1;           // Required
+  string type      = 2;           // Required: "income" or "expense"
+  string parent_id = 3;           // Optional: parent category UUID
+}
+
+// UpdateCategoryRequest: partial update. Mutable fields are `optional` (R1) so
+// the handler can distinguish "not provided" from "set to default".
+message UpdateCategoryRequest {
+  string id        = 1;                // Required: category UUID
+  optional string name = 2;            // Optional
+  optional string parent_id = 3;       // Optional
+  optional bool is_active = 4;         // Optional
+}
+
+message DeleteCategoryRequest {
+  string id = 1;             // Required: category UUID
+}
+
+message CategoryResponse {
+  Category category = 1;
+}

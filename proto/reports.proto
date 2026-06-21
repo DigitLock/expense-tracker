@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package expense_tracker.v1;
+
+option go_package = "github.com/DigitLock/expense-tracker/internal/grpc/pb";
+
+service ReportService {
+  rpc GetSpendingByCategory(SpendingByCategoryRequest) returns (SpendingByCategoryResponse);
+  rpc GetMonthlySummary(MonthlySummaryRequest) returns (MonthlySummaryResponse);
+}
+
+message SpendingByCategoryRequest {
+  string start_date = 1;     // Optional: YYYY-MM-DD, default: month start
+  string end_date = 2;       // Optional: YYYY-MM-DD, default: today
+  string currency = 3;       // Optional: default family base currency
+  string type = 4;           // Optional: "income" or "expense", default: "expense"
+}
+
+message SpendingByCategoryResponse {
+  string report_type = 1;
+  Period period = 2;
+  string currency = 3;
+  string transaction_type = 4;
+  repeated CategorySpending categories = 5;
+  double total_amount = 6;
+  int32 total_transactions = 7;
+  string generated_at = 8;
+}
+
+message Period {
+  string start_date = 1;
+  string end_date = 2;
+}
+
+message CategorySpending {
+  string category_id = 1;
+  string category_name = 2;
+  double total_amount = 3;
+  int32 transaction_count = 4;
+  double percentage = 5;
+  double average_per_transaction = 6;
+}
+
+message MonthlySummaryRequest {
+  string month = 1;          // Optional: YYYY-MM, default: current month
+  string currency = 2;       // Optional: default family base currency
+}
+
+message MonthlySummaryResponse {
+  string month = 1;
+  string currency = 2;
+  double total_income = 3;
+  double total_expenses = 4;
+  double net_balance = 5;
+  int32 income_count = 6;
+  int32 expense_count = 7;
+  string generated_at = 8;
+}

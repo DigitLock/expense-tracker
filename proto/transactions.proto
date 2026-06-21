@@ -5,9 +5,13 @@ package expense_tracker.v1;
 option go_package = "github.com/DigitLock/expense-tracker/internal/grpc/pb";
 
 import "google/protobuf/timestamp.proto";
+import "common.proto"; // for the shared DeleteResponse message
 
 service TransactionService {
   rpc ListTransactions(ListTransactionsRequest) returns (ListTransactionsResponse);
+  rpc CreateTransaction(CreateTransactionRequest) returns (TransactionResponse);
+  rpc UpdateTransaction(UpdateTransactionRequest) returns (TransactionResponse);
+  rpc DeleteTransaction(DeleteTransactionRequest) returns (DeleteResponse);
 }
 
 message ListTransactionsRequest {
@@ -40,4 +44,35 @@ message ListTransactionsResponse {
   int32                per_page     = 3;
   int32                total        = 4;
   int32                total_pages  = 5;
+}
+
+message CreateTransactionRequest {
+  string type = 1;           // Required: "income" or "expense"
+  double amount = 2;         // Required: positive value
+  string currency = 3;       // Required: "RSD" or "EUR"
+  string category_id = 4;    // Required: category UUID
+  string account_id = 5;     // Required: account UUID
+  string description = 6;    // Optional
+  string date = 7;           // Required: YYYY-MM-DD
+}
+
+// UpdateTransactionRequest: partial update. Mutable fields are `optional` (R1)
+// so the handler can distinguish "not provided" from "set to default".
+message UpdateTransactionRequest {
+  string id = 1;                       // Required: transaction UUID
+  optional string type = 2;            // Optional
+  optional double amount = 3;          // Optional
+  optional string currency = 4;        // Optional
+  optional string category_id = 5;     // Optional
+  optional string account_id = 6;      // Optional
+  optional string description = 7;     // Optional
+  optional string date = 8;            // Optional
+}
+
+message DeleteTransactionRequest {
+  string id = 1;             // Required: transaction UUID
+}
+
+message TransactionResponse {
+  Transaction transaction = 1;
 }
