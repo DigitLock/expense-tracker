@@ -5,9 +5,13 @@ package expense_tracker.v1;
 option go_package = "github.com/DigitLock/expense-tracker/internal/grpc/pb";
 
 import "google/protobuf/timestamp.proto";
+import "common.proto"; // DeleteResponse
 
 service AccountService {
   rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse);
+  rpc CreateAccount(CreateAccountRequest) returns (AccountResponse);
+  rpc UpdateAccount(UpdateAccountRequest) returns (AccountResponse);
+  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteResponse);
 }
 
 message ListAccountsRequest {}
@@ -27,4 +31,30 @@ message Account {
 message ListAccountsResponse {
   repeated Account accounts = 1;
   int32            total    = 2;
+}
+
+message CreateAccountRequest {
+  string name = 1;            // Required: account display name
+  string type = 2;            // Required: "cash", "checking", "savings"
+  string currency = 3;        // Required: "RSD" or "EUR"
+  double initial_balance = 4; // Optional: starting balance (default: 0.00)
+  string description = 5;     // Optional
+}
+
+// UpdateAccountRequest: partial update. Mutable fields are `optional` (R1) so
+// the handler can distinguish "not provided" from "set to default", mapping to
+// Go pointers for the existing repository Update signature.
+message UpdateAccountRequest {
+  string id = 1;                       // Required: account UUID
+  optional string name = 2;            // Optional
+  optional string description = 3;     // Optional
+  optional bool is_active = 4;         // Optional
+}
+
+message DeleteAccountRequest {
+  string id = 1;              // Required: account UUID
+}
+
+message AccountResponse {
+  Account account = 1;
 }
