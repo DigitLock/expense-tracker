@@ -1,0 +1,22 @@
+# VCS
+.git
+
+# Frontend (backend image only)
+frontend/
+
+# Local build artifacts
+bin/
+
+# Docs
+*.md
+Documentation/
+
+# Secrets / local env (never enter the build context)
+.env
+.env.*
+
+# Seed data is applied out-of-band, not built into the image
+database/seeds/
+
+# Kept on purpose (NOT ignored): proto/, buf.yaml, buf.gen.yaml,
+# go.mod, go.sum, and all Go sources.
