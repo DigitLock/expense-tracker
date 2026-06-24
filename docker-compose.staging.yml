@@ -1,0 +1,66 @@
+# Isolated staging stack for expense-tracker (v0.4.x).
+#
+# Usage:
+#   docker compose -f docker-compose.staging.yml \
+#     --env-file .env.staging -p expense-tracker-staging up -d
+#
+# Project name is intentionally NOT hardcoded — pass -p expense-tracker-staging.
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  pgdata:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    env_file: .env.staging
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    # No published ports — reachable only on the internal network.
+    networks:
+      - internal
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    image: migrate/migrate:v4.17.1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - "-path=/migrations"
+      - "-database"
+      - "postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=${DB_SSLMODE}"
+      - "up"
+    volumes:
+      - ./database/migrations:/migrations:ro
+    networks:
+      - internal
+    restart: "no"
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env.staging
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "18080:8080"
+      - "15051:50051"
+    networks:
+      - internal
+    restart: unless-stopped
