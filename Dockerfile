@@ -3,7 +3,7 @@
 # ---------------------------------------------------------------------------
 # Builder: regenerate protobuf/gRPC stubs with buf, then build a static binary
 # ---------------------------------------------------------------------------
-FROM golang:1.25.3-alpine AS builder
+FROM golang:1.25.6-alpine AS builder
 
 # git is required by `go install` (module fetch) and by buf.
 RUN apk add --no-cache git
