@@ -41,7 +41,7 @@ func NewCategoryHandler(categoryRepo *repository.CategoryRepository) *CategoryHa
 // @Success      200 {object} dto.SuccessResponse{data=dto.CategoryListResponse} "List of categories"
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /categories [get]
+// @Router       /api/v1/categories [get]
 func (h *CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -78,7 +78,7 @@ func (h *CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      409 {object} dto.ErrorResponse "Category already exists (active or restorable inactive)"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /categories [post]
+// @Router       /api/v1/categories [post]
 func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -137,7 +137,7 @@ func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      404 {object} dto.ErrorResponse "Category not found or does not belong to user's family"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /categories/{id} [get]
+// @Router       /api/v1/categories/{id} [get]
 func (h *CategoryHandler) Get(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -174,7 +174,7 @@ func (h *CategoryHandler) Get(w http.ResponseWriter, r *http.Request) {
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      404 {object} dto.ErrorResponse "Category not found"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /categories/{id} [patch]
+// @Router       /api/v1/categories/{id} [patch]
 func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -220,7 +220,7 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 // @Failure      404 {object} dto.ErrorResponse "Category not found"
 // @Failure      409 {object} dto.ErrorResponse "Category has subcategories or transactions"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /categories/{id} [delete]
+// @Router       /api/v1/categories/{id} [delete]
 func (h *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -254,7 +254,7 @@ func (h *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized"
 // @Failure      404 {object} dto.ErrorResponse "Category not found or already active"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /categories/{id}/restore [post]
+// @Router       /api/v1/categories/{id}/restore [post]
 func (h *CategoryHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {

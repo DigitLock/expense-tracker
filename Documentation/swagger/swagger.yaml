@@ -1,4 +1,4 @@
-basePath: /api/v1
+basePath: /
 definitions:
   dto.AccountBalanceResponse:
     properties:
@@ -49,6 +49,8 @@ definitions:
       current_balance:
         example: 4850.5
         type: number
+      description:
+        type: string
       id:
         example: 550e8400-e29b-41d4-a716-446655440010
         type: string
@@ -148,6 +150,8 @@ definitions:
         - RSD
         - EUR
         example: RSD
+        type: string
+      description:
         type: string
       initial_balance:
         example: 5000
@@ -250,6 +254,18 @@ definitions:
         example: false
         type: boolean
     type: object
+  dto.ExchangeRateSyncResponse:
+    properties:
+      fetched_at:
+        example: "2025-12-06T18:30:00Z"
+        type: string
+      source:
+        example: fawazahmed0
+        type: string
+      synced_pairs:
+        example: 2
+        type: integer
+    type: object
   dto.ExchangeRatesResponse:
     properties:
       base_currency:
@@ -340,6 +356,12 @@ definitions:
       currency:
         example: RSD
         type: string
+      currency_note:
+        description: |-
+          CurrencyNote is set only when a non-RSD currency was requested but no
+          exchange rate was available, so amounts fall back to RSD.
+        example: Requested EUR, but no exchange rate available; showing RSD
+        type: string
       expense_breakdown:
         additionalProperties:
           type: number
@@ -383,6 +405,30 @@ definitions:
         example: 3
         type: integer
     type: object
+  dto.RegisterRequest:
+    properties:
+      email:
+        example: new@example.com
+        type: string
+      family_name:
+        example: Kudinov Family
+        maxLength: 100
+        minLength: 1
+        type: string
+      name:
+        example: Igor Kudinov
+        maxLength: 100
+        minLength: 1
+        type: string
+      password:
+        example: Secret123
+        minLength: 8
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
   dto.ReportPeriod:
     properties:
       end_date:
@@ -396,6 +442,12 @@ definitions:
     properties:
       currency:
         example: RSD
+        type: string
+      currency_note:
+        description: |-
+          CurrencyNote is set only when a non-RSD currency was requested but no
+          exchange rate was available, so amounts fall back to RSD.
+        example: Requested EUR, but no exchange rate available; showing RSD
         type: string
       generated_at:
         example: "2025-12-06T18:30:00Z"
@@ -510,6 +562,8 @@ definitions:
     type: object
   dto.UpdateAccountRequest:
     properties:
+      description:
+        type: string
       is_active:
         example: true
         type: boolean
@@ -579,6 +633,9 @@ definitions:
       name:
         example: Demo User
         type: string
+      role:
+        example: owner
+        type: string
     type: object
   dto.ValidationError:
     properties:
@@ -592,7 +649,7 @@ definitions:
 host: localhost:8080
 info:
   contact:
-    email: igor@digitlock.systems
+    email: digitlock@proton.me
     name: Igor Kudinov
   description: Personal and family finance management system with multi-currency support
     and automatic balance calculation
@@ -603,7 +660,7 @@ info:
   title: Expense Tracker API
   version: "1.0"
 paths:
-  /accounts:
+  /api/v1/accounts:
     get:
       description: Get all accounts for the authenticated user's family with optional
         filter for inactive accounts
@@ -670,6 +727,10 @@ paths:
           description: Unauthorized - invalid or missing JWT token
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Account with this name already exists
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
           description: Internal server error
           schema:
@@ -679,7 +740,7 @@ paths:
       summary: Create account
       tags:
       - Accounts
-  /accounts/{id}:
+  /api/v1/accounts/{id}:
     delete:
       description: Soft delete an account (marks as inactive, preserves transaction
         history)
@@ -706,7 +767,11 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "404":
-          description: Account not found or does not belong to user's family
+          description: Account not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Account inactive or has transactions
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":
@@ -799,7 +864,7 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "404":
-          description: Account not found or does not belong to user's family
+          description: Account not found
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":
@@ -811,7 +876,7 @@ paths:
       summary: Update account
       tags:
       - Accounts
-  /accounts/{id}/balance:
+  /api/v1/accounts/{id}/balance:
     get:
       description: Retrieve current balance and related information for a specific
         account
@@ -855,7 +920,7 @@ paths:
       summary: Get account balance
       tags:
       - Accounts
-  /auth/login:
+  /api/v1/auth/login:
     post:
       consumes:
       - application/json
@@ -895,7 +960,47 @@ paths:
       summary: User login
       tags:
       - Authentication
-  /categories:
+  /api/v1/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Self-register a new user. Creates a new family with the user as
+        its owner, seeds default categories, and returns a JWT token (auto-login).
+      parameters:
+      - description: Registration data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Registration successful
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.LoginResponse'
+              type: object
+        "400":
+          description: Invalid request body or validation error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Email already registered
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: User registration
+      tags:
+      - Authentication
+  /api/v1/categories:
     get:
       description: Get all transaction categories for the authenticated user's family
         with optional filters for type and inactive categories. Supports hierarchical
@@ -970,6 +1075,10 @@ paths:
           description: Unauthorized - invalid or missing JWT token
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Category already exists (active or restorable inactive)
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
           description: Internal server error
           schema:
@@ -979,7 +1088,7 @@ paths:
       summary: Create category
       tags:
       - Categories
-  /categories/{id}:
+  /api/v1/categories/{id}:
     delete:
       description: Soft delete a category (marks as inactive, preserves transaction
         history)
@@ -1006,7 +1115,11 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "404":
-          description: Category not found or does not belong to user's family
+          description: Category not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Category has subcategories or transactions
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":
@@ -1100,7 +1213,7 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "404":
-          description: Category not found or does not belong to user's family
+          description: Category not found
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":
@@ -1112,7 +1225,50 @@ paths:
       summary: Update category
       tags:
       - Categories
-  /currencies/convert:
+  /api/v1/categories/{id}/restore:
+    post:
+      description: Reactivate a soft-deleted category
+      parameters:
+      - description: Category ID (UUID)
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Category restored successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CategoryResponse'
+              type: object
+        "400":
+          description: Invalid category ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Category not found or already active
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Restore deleted category
+      tags:
+      - Categories
+  /api/v1/currencies/convert:
     get:
       description: Convert an amount from one currency to another using current exchange
         rates. Supports conversion between RSD and EUR.
@@ -1170,7 +1326,7 @@ paths:
       summary: Convert currency
       tags:
       - Currencies
-  /currencies/rates:
+  /api/v1/currencies/rates:
     get:
       description: Retrieve current exchange rates for all supported currencies (RSD,
         EUR) with base currency RSD
@@ -1199,49 +1355,39 @@ paths:
       summary: Get exchange rates
       tags:
       - Currencies
-  /health:
-    get:
-      description: Returns the overall health status of the service including database
-        connectivity
+  /api/v1/exchange-rates/sync:
+    post:
+      description: Triggers an immediate sync of exchange rates from the currency
+        rate service and upserts them.
       produces:
       - application/json
       responses:
         "200":
-          description: Service is healthy
+          description: Sync result
           schema:
-            $ref: '#/definitions/dto.HealthResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ExchangeRateSyncResponse'
+              type: object
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
         "503":
-          description: Service is degraded (database unhealthy)
+          description: Currency rate service unavailable
           schema:
-            $ref: '#/definitions/dto.HealthResponse'
-      summary: Health check
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Force exchange rate sync
       tags:
-      - Health
-  /ready:
+      - Currencies
+  /api/v1/reports/monthly-summary:
     get:
-      description: Kubernetes readiness probe endpoint. Returns 200 if service is
-        ready to accept traffic, 503 otherwise.
-      produces:
-      - text/plain
-      responses:
-        "200":
-          description: ready
-          schema:
-            type: string
-        "503":
-          description: not ready
-          schema:
-            type: string
-      summary: Readiness check
-      tags:
-      - Health
-  /reports/monthly-summary:
-    get:
-      description: Generate comprehensive monthly financial report including income,
-        expenses, net savings, category breakdowns, and account balances
       parameters:
-      - description: Month in YYYY-MM format (defaults to current month)
-        example: 2025-11
+      - description: Month YYYY-MM (defaults to current)
         in: query
         name: month
         type: string
@@ -1249,7 +1395,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Monthly financial summary
+          description: OK
           schema:
             allOf:
             - $ref: '#/definitions/dto.SuccessResponse'
@@ -1258,15 +1404,11 @@ paths:
                   $ref: '#/definitions/dto.MonthlySummaryResponse'
               type: object
         "400":
-          description: Invalid query parameters
+          description: Bad Request
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "401":
-          description: Unauthorized - invalid or missing JWT token
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
+          description: Unauthorized
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       security:
@@ -1274,26 +1416,19 @@ paths:
       summary: Monthly financial summary
       tags:
       - Reports
-  /reports/spending-by-category:
+  /api/v1/reports/spending-by-category:
     get:
-      description: Generate detailed spending analysis grouped by category for a specified
-        date range with percentages and averages
       parameters:
-      - description: Start date in YYYY-MM-DD format
-        example: "2025-11-01"
+      - description: Start date YYYY-MM-DD
         in: query
         name: start_date
         type: string
-      - description: End date in YYYY-MM-DD format
-        example: "2025-11-30"
+      - description: End date YYYY-MM-DD
         in: query
         name: end_date
         type: string
       - default: expense
-        description: 'Transaction type: income or expense'
-        enum:
-        - income
-        - expense
+        description: income or expense
         in: query
         name: type
         type: string
@@ -1301,7 +1436,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Spending analysis report
+          description: OK
           schema:
             allOf:
             - $ref: '#/definitions/dto.SuccessResponse'
@@ -1310,15 +1445,11 @@ paths:
                   $ref: '#/definitions/dto.SpendingByCategoryResponse'
               type: object
         "400":
-          description: Invalid query parameters
+          description: Bad Request
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "401":
-          description: Unauthorized - invalid or missing JWT token
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
+          description: Unauthorized
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       security:
@@ -1326,7 +1457,7 @@ paths:
       summary: Spending by category report
       tags:
       - Reports
-  /transactions:
+  /api/v1/transactions:
     get:
       description: Get paginated list of transactions for the authenticated user's
         family with optional filters
@@ -1373,10 +1504,6 @@ paths:
                 data:
                   $ref: '#/definitions/dto.TransactionListResponse'
               type: object
-        "400":
-          description: Invalid query parameters
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
         "401":
           description: Unauthorized - invalid or missing JWT token
           schema:
@@ -1431,7 +1558,7 @@ paths:
       summary: Create transaction
       tags:
       - Transactions
-  /transactions/{id}:
+  /api/v1/transactions/{id}:
     delete:
       description: Soft delete a transaction (marks as inactive, account balance is
         automatically recalculated)
@@ -1458,7 +1585,7 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "404":
-          description: Transaction not found or does not belong to user's family
+          description: Transaction not found
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":
@@ -1551,7 +1678,7 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "404":
-          description: Transaction not found or does not belong to user's family
+          description: Transaction not found
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":
@@ -1563,6 +1690,42 @@ paths:
       summary: Update transaction
       tags:
       - Transactions
+  /health:
+    get:
+      description: Returns the overall health status of the service including database
+        connectivity
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is healthy
+          schema:
+            $ref: '#/definitions/dto.HealthResponse'
+        "503":
+          description: Service is degraded (database unhealthy)
+          schema:
+            $ref: '#/definitions/dto.HealthResponse'
+      summary: Health check
+      tags:
+      - Health
+  /ready:
+    get:
+      description: Kubernetes readiness probe endpoint. Returns 200 if service is
+        ready to accept traffic, 503 otherwise.
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: ready
+          schema:
+            type: string
+        "503":
+          description: not ready
+          schema:
+            type: string
+      summary: Readiness check
+      tags:
+      - Health
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer" followed by a space and JWT token.

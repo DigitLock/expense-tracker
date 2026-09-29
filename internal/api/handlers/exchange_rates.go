@@ -29,7 +29,7 @@ func NewExchangeRateHandler(syncer *currency.Syncer) *ExchangeRateHandler {
 // @Success      200 {object} dto.SuccessResponse{data=dto.ExchangeRateSyncResponse} "Sync result"
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      503 {object} dto.ErrorResponse "Currency rate service unavailable"
-// @Router       /exchange-rates/sync [post]
+// @Router       /api/v1/exchange-rates/sync [post]
 func (h *ExchangeRateHandler) Sync(w http.ResponseWriter, r *http.Request) {
 	if h.syncer == nil {
 		writeError(w, http.StatusServiceUnavailable, "CURRENCY_SERVICE_UNAVAILABLE",

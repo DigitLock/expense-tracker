@@ -39,7 +39,7 @@ func NewAccountHandler(accountRepo *repository.AccountRepository) *AccountHandle
 // @Success      200 {object} dto.SuccessResponse{data=dto.AccountListResponse} "List of accounts"
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /accounts [get]
+// @Router       /api/v1/accounts [get]
 func (h *AccountHandler) List(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -75,7 +75,7 @@ func (h *AccountHandler) List(w http.ResponseWriter, r *http.Request) {
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      409 {object} dto.ErrorResponse "Account with this name already exists"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /accounts [post]
+// @Router       /api/v1/accounts [post]
 func (h *AccountHandler) Create(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -118,7 +118,7 @@ func (h *AccountHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      404 {object} dto.ErrorResponse "Account not found or does not belong to user's family"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /accounts/{id} [get]
+// @Router       /api/v1/accounts/{id} [get]
 func (h *AccountHandler) Get(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -155,7 +155,7 @@ func (h *AccountHandler) Get(w http.ResponseWriter, r *http.Request) {
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      404 {object} dto.ErrorResponse "Account not found"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /accounts/{id} [patch]
+// @Router       /api/v1/accounts/{id} [patch]
 func (h *AccountHandler) Update(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -201,7 +201,7 @@ func (h *AccountHandler) Update(w http.ResponseWriter, r *http.Request) {
 // @Failure      404 {object} dto.ErrorResponse "Account not found"
 // @Failure      409 {object} dto.ErrorResponse "Account inactive or has transactions"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /accounts/{id} [delete]
+// @Router       /api/v1/accounts/{id} [delete]
 func (h *AccountHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -235,7 +235,7 @@ func (h *AccountHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      404 {object} dto.ErrorResponse "Account not found or does not belong to user's family"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /accounts/{id}/balance [get]
+// @Router       /api/v1/accounts/{id}/balance [get]
 func (h *AccountHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {

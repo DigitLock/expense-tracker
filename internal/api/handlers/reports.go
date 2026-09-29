@@ -53,7 +53,7 @@ func NewReportHandler(
 // @Success      200 {object} dto.SuccessResponse{data=dto.SpendingByCategoryResponse}
 // @Failure      400 {object} dto.ErrorResponse
 // @Failure      401 {object} dto.ErrorResponse
-// @Router       /reports/spending-by-category [get]
+// @Router       /api/v1/reports/spending-by-category [get]
 func (h *ReportHandler) SpendingByCategory(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -106,7 +106,7 @@ func (h *ReportHandler) SpendingByCategory(w http.ResponseWriter, r *http.Reques
 // @Success      200 {object} dto.SuccessResponse{data=dto.MonthlySummaryResponse}
 // @Failure      400 {object} dto.ErrorResponse
 // @Failure      401 {object} dto.ErrorResponse
-// @Router       /reports/monthly-summary [get]
+// @Router       /api/v1/reports/monthly-summary [get]
 func (h *ReportHandler) MonthlySummary(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {

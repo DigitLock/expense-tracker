@@ -26,7 +26,7 @@ The gRPC API provides **full functional parity** with the existing REST API defi
 
 **Demo Implementation Note**
 
-> :information_source: For the initial demo release (v0.4.0), **2 of 16 methods** are implemented: `AccountService.ListAccounts` and `TransactionService.ListTransactions`. These two methods demonstrate the complete gRPC pipeline end-to-end (proto → codegen → interceptors → handlers → shared repository → database). The remaining 14 methods follow identical architectural patterns and are specified in this document for future implementation.
+> :information_source: **16 of 16 methods are implemented (v0.4.0).** The initial demo shipped `AccountService.ListAccounts` and `TransactionService.ListTransactions` first to demonstrate the complete gRPC pipeline end-to-end (proto → codegen → interceptors → handlers → shared repository → database); the remaining 14 methods followed the same architectural patterns.
 
 **Business Context**
 - **Portfolio demonstration** of inter-service communication patterns relevant to fintech SA positions
@@ -1229,23 +1229,23 @@ grpcurl -plaintext \
 | Service | Method | Status | Notes |
 |---------|--------|--------|-------|
 | **AccountService** | ListAccounts | ✅ Implemented | Tested via grpcurl, BloomRPC, Flutter |
-| **AccountService** | CreateAccount | 📐 Designed | Proto defined, handler pending |
-| **AccountService** | UpdateAccount | 📐 Designed | Proto defined, handler pending |
-| **AccountService** | DeleteAccount | 📐 Designed | Proto defined, handler pending |
+| **AccountService** | CreateAccount | ✅ Implemented | Shipped in v0.4.0 |
+| **AccountService** | UpdateAccount | ✅ Implemented | Shipped in v0.4.0 |
+| **AccountService** | DeleteAccount | ✅ Implemented | Shipped in v0.4.0 |
 | **TransactionService** | ListTransactions | ✅ Implemented | Filters + pagination working |
-| **TransactionService** | CreateTransaction | 📐 Designed | Proto defined, handler pending |
-| **TransactionService** | UpdateTransaction | 📐 Designed | Proto defined, handler pending |
-| **TransactionService** | DeleteTransaction | 📐 Designed | Proto defined, handler pending |
-| **CategoryService** | ListCategories | 📐 Designed | Proto defined |
-| **CategoryService** | CreateCategory | 📐 Designed | Proto defined |
-| **CategoryService** | UpdateCategory | 📐 Designed | Proto defined |
-| **CategoryService** | DeleteCategory | 📐 Designed | Proto defined |
-| **ReportService** | GetSpendingByCategory | 📐 Designed | Proto defined |
-| **ReportService** | GetMonthlySummary | 📐 Designed | Proto defined |
-| **AuthService** | Login | 📐 Designed | Currently handled via REST |
-| **AuthService** | ValidateToken | 📐 Designed | For future mobile session restore |
+| **TransactionService** | CreateTransaction | ✅ Implemented | Shipped in v0.4.0 |
+| **TransactionService** | UpdateTransaction | ✅ Implemented | Shipped in v0.4.0 |
+| **TransactionService** | DeleteTransaction | ✅ Implemented | Shipped in v0.4.0 |
+| **CategoryService** | ListCategories | ✅ Implemented | Shipped in v0.4.0 |
+| **CategoryService** | CreateCategory | ✅ Implemented | Shipped in v0.4.0 |
+| **CategoryService** | UpdateCategory | ✅ Implemented | Shipped in v0.4.0 |
+| **CategoryService** | DeleteCategory | ✅ Implemented | Shipped in v0.4.0 |
+| **ReportService** | GetSpendingByCategory | ✅ Implemented | Shipped in v0.4.0 |
+| **ReportService** | GetMonthlySummary | ✅ Implemented | Shipped in v0.4.0 |
+| **AuthService** | Login | ✅ Implemented | Shipped in v0.4.0 |
+| **AuthService** | ValidateToken | ✅ Implemented | Shipped in v0.4.0 |
 
-**Summary:** 2/16 implemented (demo), 14/16 designed (full spec with proto definitions)
+**Summary:** 16/16 implemented (v0.4.0)
 
 ---
 
@@ -1405,7 +1405,7 @@ systemctl status cloudflared                   # Tunnel status
 | BloomRPC with metadata | BloomRPC | Accounts returned via GUI | ✅ Pass |
 | Flutter mobile client | iOS Simulator | Full flow end-to-end | ✅ Pass |
 
-**Planned (remaining 14 methods — test cases for implementation phase):**
+**Note:** all 16 methods shipped in v0.4.0; the test plan below is kept as the original design record.
 
 | Service | Test Case | Expected Result |
 |---------|-----------|-----------------|
@@ -1479,6 +1479,6 @@ grpcurl -plaintext \
 | gRPC reflection via Cloudflare | N/A | Free plan limitation — use direct IP |
 | TLS for gRPC | Medium | Required for production |
 | Streaming methods | Low | Server streaming for real-time balance updates — future |
-| Remaining 14 RPC methods | Medium | Proto designed, handlers pending implementation |
+| All 16 RPC methods | — | Shipped in v0.4.0 |
 
 ---

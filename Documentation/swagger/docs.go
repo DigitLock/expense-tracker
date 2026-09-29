@@ -12,7 +12,7 @@ const docTemplate = `{
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
             "name": "Igor Kudinov",
-            "email": "igor@digitlock.systems"
+            "email": "digitlock@proton.me"
         },
         "license": {
             "name": "MIT",
@@ -23,7 +23,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/accounts": {
+        "/api/v1/accounts": {
             "get": {
                 "security": [
                     {
@@ -139,6 +139,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
+                    "409": {
+                        "description": "Account with this name already exists",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
@@ -148,7 +154,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/accounts/{id}": {
+        "/api/v1/accounts/{id}": {
             "get": {
                 "security": [
                     {
@@ -262,7 +268,13 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Account not found or does not belong to user's family",
+                        "description": "Account not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Account inactive or has transactions",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -343,7 +355,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Account not found or does not belong to user's family",
+                        "description": "Account not found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -357,7 +369,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/accounts/{id}/balance": {
+        "/api/v1/accounts/{id}/balance": {
             "get": {
                 "security": [
                     {
@@ -428,7 +440,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/login": {
+        "/api/v1/auth/login": {
             "post": {
                 "description": "Authenticate user with email and password, returns JWT token for accessing protected endpoints",
                 "consumes": [
@@ -492,7 +504,71 @@ const docTemplate = `{
                 }
             }
         },
-        "/categories": {
+        "/api/v1/auth/register": {
+            "post": {
+                "description": "Self-register a new user. Creates a new family with the user as its owner, seeds default categories, and returns a JWT token (auto-login).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "User registration",
+                "parameters": [
+                    {
+                        "description": "Registration data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.RegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Registration successful",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.LoginResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body or validation error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Email already registered",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/categories": {
             "get": {
                 "security": [
                     {
@@ -618,6 +694,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
+                    "409": {
+                        "description": "Category already exists (active or restorable inactive)",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
@@ -627,7 +709,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/categories/{id}": {
+        "/api/v1/categories/{id}": {
             "get": {
                 "security": [
                     {
@@ -741,7 +823,13 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Category not found or does not belong to user's family",
+                        "description": "Category not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Category has subcategories or transactions",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -822,7 +910,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Category not found or does not belong to user's family",
+                        "description": "Category not found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -836,7 +924,78 @@ const docTemplate = `{
                 }
             }
         },
-        "/currencies/convert": {
+        "/api/v1/categories/{id}/restore": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Reactivate a soft-deleted category",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Categories"
+                ],
+                "summary": "Restore deleted category",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Category ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Category restored successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.CategoryResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid category ID format",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Category not found or already active",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/currencies/convert": {
             "get": {
                 "security": [
                     {
@@ -925,7 +1084,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/currencies/rates": {
+        "/api/v1/currencies/rates": {
             "get": {
                 "security": [
                     {
@@ -974,66 +1133,62 @@ const docTemplate = `{
                 }
             }
         },
-        "/health": {
-            "get": {
-                "description": "Returns the overall health status of the service including database connectivity",
+        "/api/v1/exchange-rates/sync": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Triggers an immediate sync of exchange rates from the currency rate service and upserts them.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Health"
+                    "Currencies"
                 ],
-                "summary": "Health check",
+                "summary": "Force exchange rate sync",
                 "responses": {
                     "200": {
-                        "description": "Service is healthy",
+                        "description": "Sync result",
                         "schema": {
-                            "$ref": "#/definitions/dto.HealthResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.ExchangeRateSyncResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing JWT token",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "503": {
-                        "description": "Service is degraded (database unhealthy)",
+                        "description": "Currency rate service unavailable",
                         "schema": {
-                            "$ref": "#/definitions/dto.HealthResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/ready": {
-            "get": {
-                "description": "Kubernetes readiness probe endpoint. Returns 200 if service is ready to accept traffic, 503 otherwise.",
-                "produces": [
-                    "text/plain"
-                ],
-                "tags": [
-                    "Health"
-                ],
-                "summary": "Readiness check",
-                "responses": {
-                    "200": {
-                        "description": "ready",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "503": {
-                        "description": "not ready",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/reports/monthly-summary": {
+        "/api/v1/reports/monthly-summary": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Generate comprehensive monthly financial report including income, expenses, net savings, category breakdowns, and account balances",
                 "produces": [
                     "application/json"
                 ],
@@ -1044,15 +1199,14 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "example": "2025-11",
-                        "description": "Month in YYYY-MM format (defaults to current month)",
+                        "description": "Month YYYY-MM (defaults to current)",
                         "name": "month",
                         "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Monthly financial summary",
+                        "description": "OK",
                         "schema": {
                             "allOf": [
                                 {
@@ -1070,19 +1224,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Invalid query parameters",
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized - invalid or missing JWT token",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -1090,14 +1238,13 @@ const docTemplate = `{
                 }
             }
         },
-        "/reports/spending-by-category": {
+        "/api/v1/reports/spending-by-category": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Generate detailed spending analysis grouped by category for a specified date range with percentages and averages",
                 "produces": [
                     "application/json"
                 ],
@@ -1108,33 +1255,27 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "example": "2025-11-01",
-                        "description": "Start date in YYYY-MM-DD format",
+                        "description": "Start date YYYY-MM-DD",
                         "name": "start_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "example": "2025-11-30",
-                        "description": "End date in YYYY-MM-DD format",
+                        "description": "End date YYYY-MM-DD",
                         "name": "end_date",
                         "in": "query"
                     },
                     {
-                        "enum": [
-                            "income",
-                            "expense"
-                        ],
                         "type": "string",
                         "default": "expense",
-                        "description": "Transaction type: income or expense",
+                        "description": "income or expense",
                         "name": "type",
                         "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Spending analysis report",
+                        "description": "OK",
                         "schema": {
                             "allOf": [
                                 {
@@ -1152,19 +1293,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Invalid query parameters",
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized - invalid or missing JWT token",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -1172,7 +1307,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/transactions": {
+        "/api/v1/transactions": {
             "get": {
                 "security": [
                     {
@@ -1247,12 +1382,6 @@ const docTemplate = `{
                                     }
                                 }
                             ]
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid query parameters",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
@@ -1337,7 +1466,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/transactions/{id}": {
+        "/api/v1/transactions/{id}": {
             "get": {
                 "security": [
                     {
@@ -1451,7 +1580,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Transaction not found or does not belong to user's family",
+                        "description": "Transaction not found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -1532,7 +1661,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Transaction not found or does not belong to user's family",
+                        "description": "Transaction not found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -1541,6 +1670,58 @@ const docTemplate = `{
                         "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "description": "Returns the overall health status of the service including database connectivity",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "Service is healthy",
+                        "schema": {
+                            "$ref": "#/definitions/dto.HealthResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service is degraded (database unhealthy)",
+                        "schema": {
+                            "$ref": "#/definitions/dto.HealthResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/ready": {
+            "get": {
+                "description": "Kubernetes readiness probe endpoint. Returns 200 if service is ready to accept traffic, 503 otherwise.",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Readiness check",
+                "responses": {
+                    "200": {
+                        "description": "ready",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "503": {
+                        "description": "not ready",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }
@@ -1617,6 +1798,9 @@ const docTemplate = `{
                 "current_balance": {
                     "type": "number",
                     "example": 4850.5
+                },
+                "description": {
+                    "type": "string"
                 },
                 "id": {
                     "type": "string",
@@ -1763,6 +1947,9 @@ const docTemplate = `{
                     ],
                     "example": "RSD"
                 },
+                "description": {
+                    "type": "string"
+                },
                 "initial_balance": {
                     "type": "number",
                     "example": 5000
@@ -1893,6 +2080,23 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.ExchangeRateSyncResponse": {
+            "type": "object",
+            "properties": {
+                "fetched_at": {
+                    "type": "string",
+                    "example": "2025-12-06T18:30:00Z"
+                },
+                "source": {
+                    "type": "string",
+                    "example": "fawazahmed0"
+                },
+                "synced_pairs": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
         "dto.ExchangeRatesResponse": {
             "type": "object",
             "properties": {
@@ -2020,6 +2224,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "RSD"
                 },
+                "currency_note": {
+                    "description": "CurrencyNote is set only when a non-RSD currency was requested but no\nexchange rate was available, so amounts fall back to RSD.",
+                    "type": "string",
+                    "example": "Requested EUR, but no exchange rate available; showing RSD"
+                },
                 "expense_breakdown": {
                     "type": "object",
                     "additionalProperties": {
@@ -2081,6 +2290,37 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.RegisterRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "name",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "new@example.com"
+                },
+                "family_name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 1,
+                    "example": "Kudinov Family"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 1,
+                    "example": "Igor Kudinov"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "example": "Secret123"
+                }
+            }
+        },
         "dto.ReportPeriod": {
             "type": "object",
             "properties": {
@@ -2100,6 +2340,11 @@ const docTemplate = `{
                 "currency": {
                     "type": "string",
                     "example": "RSD"
+                },
+                "currency_note": {
+                    "description": "CurrencyNote is set only when a non-RSD currency was requested but no\nexchange rate was available, so amounts fall back to RSD.",
+                    "type": "string",
+                    "example": "Requested EUR, but no exchange rate available; showing RSD"
                 },
                 "generated_at": {
                     "type": "string",
@@ -2261,6 +2506,9 @@ const docTemplate = `{
         "dto.UpdateAccountRequest": {
             "type": "object",
             "properties": {
+                "description": {
+                    "type": "string"
+                },
                 "is_active": {
                     "type": "boolean",
                     "example": true
@@ -2353,6 +2601,10 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "example": "Demo User"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "owner"
                 }
             }
         },
@@ -2410,7 +2662,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "localhost:8080",
-	BasePath:         "/api/v1",
+	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Expense Tracker API",
 	Description:      "Personal and family finance management system with multi-currency support and automatic balance calculation",

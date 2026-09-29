@@ -686,13 +686,13 @@ Pre-configured defaults connect to Hetzner demo server:
 
 # 12. Version Context
 
-This document specifies v0.4.0 — the Flutter mobile gRPC demo client. It builds on the completed gRPC server integration (Stage 6) and provides a working mobile frontend for the two implemented gRPC methods.
+This document specifies v0.4.0 — the Flutter mobile gRPC demo client. It builds on the completed gRPC server integration (Stage 6) and provides a working mobile frontend for the two gRPC methods implemented at the time (all 16 methods have since shipped in v0.4.0).
 
 | Dependency | Status |
 |------------|--------|
 | Stage 6 — gRPC server (AccountService, TransactionService) | ✅ Complete |
 | Hetzner VPS deployment (backend + gRPC port 50051) | ✅ Complete |
 
-**Next versions:** v0.5.0 (production Flutter app with full CRUD) depends on remaining 14 gRPC method implementations. See TDD section 6 for full implementation status.
+**Next versions:** v0.5.0 (production Flutter app with full CRUD) builds on the complete gRPC surface — all 16 methods shipped in v0.4.0. See TDD section 6 for full implementation status.
 
 ---

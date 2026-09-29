@@ -7,11 +7,11 @@ Personal and family finance management system with multi-currency support and au
 - ✅ **Business Requirements** - Complete
 - ✅ **System Requirements** - Complete
 - ✅ **Database Schema** - Complete (7 tables, production-ready)
-- ✅ **Backend API** - Complete (23 REST endpoints with JWT auth)
+- ✅ **Backend API** - Complete (26 REST endpoints with JWT auth)
 - ✅ **OpenAPI Documentation** - Complete (Swagger UI available)
 - ✅ **Frontend MVP** - Complete (Full CRUD for Accounts, Categories, Transactions)
 - ✅ **gRPC API** - Complete (Stage 6: Mobile API with dual-protocol architecture)
-- 🧪 **Testing & QA** - In Progress (Stage 5 / v0.1.0)
+- 🚀 **Current release:** v0.4.1 on staging; v0.5.0 (Flutter client) in development
 
 ## ✨ Features
 
@@ -65,7 +65,7 @@ Located in `Documentation/`:
 **Interactive Swagger UI**: Available at `/swagger/index.html` when running the server
 
 - **OpenAPI 2.0 specification** with full endpoint documentation
-- **Request/Response examples** for all 23 endpoints
+- **Request/Response examples** for all 26 endpoints
 - **Try it out** functionality for testing endpoints directly
 - **Schema definitions** for all DTOs
 - **Authentication flow** documentation
@@ -80,9 +80,9 @@ Generated specification files in `Documentation/swagger/`:
 Production-ready PostgreSQL schema with:
 
 - **7 core tables**: families, users, accounts, categories, transactions, exchange_rates, audit_log
-- **5 triggers**: automatic timestamp updates, balance calculation, audit logging
-- **4 functions**: balance recalculation, exchange rate lookup, audit trail
-- **40+ indexes**: optimized for common query patterns
+- **10 triggers**: automatic timestamp updates, balance calculation, audit logging
+- **5 functions**: timestamp updates, balance update, balance recalculation, audit trail, default categories
+- **33 indexes**: optimized for common query patterns
 - **Complete rollback migrations**: every migration has a corresponding drop script
 
 See [`database/migrations/README.md`](database/migrations/README.md) for details.
@@ -90,17 +90,23 @@ See [`database/migrations/README.md`](database/migrations/README.md) for details
 ### Quick Start (Database)
 
 ```bash
-# Apply all migrations (in order):
-001 create families table.sql
-002 create users table.sql
-003 create accounts table.sql
-004 create categories table.sql
-005 create transactions table.sql
-006 create exchange rates table.sql
-007 create audit log table.sql
+# Apply all migrations (in order; 008 is intentionally absent):
+001 create families table
+002 create users table
+003 create accounts table
+004 create categories table
+005 create transactions table
+006 create exchange rates table
+007 create audit log table
+009 create default categories function
+010 fix account balance trigger
+011 add user role
+012 exchange rates provenance
+013 account name unique
+014 fix balance trigger account change
 
-# Load demo data:
-009 demo seed data.sql
+# Load demo data (not a migration):
+database/seeds/008_demo_seed_data.sql
 ```
 
 **Demo credentials:**
@@ -111,10 +117,11 @@ See [`database/migrations/README.md`](database/migrations/README.md) for details
 
 ### REST API (port 8080)
 
-The REST API includes 23 endpoints across 6 categories:
+The REST API includes 26 endpoints across 8 groups:
 
 #### Authentication
 - `POST /api/v1/auth/login` - User login with JWT
+- `POST /api/v1/auth/register` - Register a new user and family
 
 #### Health
 - `GET /health` - Health check
@@ -134,6 +141,7 @@ The REST API includes 23 endpoints across 6 categories:
 - `GET /api/v1/categories/{id}` - Get category details
 - `PATCH /api/v1/categories/{id}` - Update category
 - `DELETE /api/v1/categories/{id}` - Delete category
+- `POST /api/v1/categories/{id}/restore` - Restore a deleted category
 
 #### Transactions
 - `GET /api/v1/transactions` - List transactions (with filters & pagination)
@@ -150,19 +158,24 @@ The REST API includes 23 endpoints across 6 categories:
 - `GET /api/v1/currencies/rates` - Get exchange rates
 - `GET /api/v1/currencies/convert` - Convert currency
 
+#### Exchange Rates
+- `POST /api/v1/exchange-rates/sync` - Force exchange-rate sync from the Currency Rate Service
+
 **📚 Full documentation with examples**: Visit `/swagger/index.html` after starting the server
 
 ### gRPC API (port 50051)
 
-Mobile API using Protocol Buffers. Proto definitions in `proto/`.
+Mobile API using Protocol Buffers: 5 services, 16 RPCs. Proto definitions in `proto/` (7 files).
 
-#### AccountService
-- `ListAccounts` - List all accounts with balances for authenticated family
+| Service | RPCs | Methods |
+|---------|------|---------|
+| AuthService | 2 | `Login`, `ValidateToken` |
+| AccountService | 4 | `ListAccounts`, `CreateAccount`, `UpdateAccount`, `DeleteAccount` |
+| TransactionService | 4 | `ListTransactions`, `CreateTransaction`, `UpdateTransaction`, `DeleteTransaction` |
+| CategoryService | 4 | `ListCategories`, `CreateCategory`, `UpdateCategory`, `DeleteCategory` |
+| ReportService | 2 | `GetSpendingByCategory`, `GetMonthlySummary` |
 
-#### TransactionService
-- `ListTransactions` - List transactions with filtering and pagination
-    - Filters: `type` (income/expense), `account_id`, `month` (YYYY-MM)
-    - Pagination: `page`, `per_page`
+`common.proto` holds shared messages; `currency_rate.proto` is the client contract for the external Currency Rate Service (not served by this backend).
 
 **Authentication**: JWT token via gRPC metadata header `authorization: Bearer <token>`
 
@@ -213,10 +226,14 @@ expense-tracker/
 │   │   ├── docs.go        # Generated Swagger docs
 │   │   ├── swagger.json   # OpenAPI 2.0 spec
 │   │   └── swagger.yaml   # OpenAPI 2.0 spec (YAML)
-│   └── *_SUMMARY.md       # Development stage summaries
 ├── proto/                  # Protocol Buffer definitions
-│   ├── accounts.proto      # AccountService (ListAccounts)
-│   └── transactions.proto  # TransactionService (ListTransactions)
+│   ├── auth.proto          # AuthService (2 RPCs)
+│   ├── accounts.proto      # AccountService (4 RPCs)
+│   ├── transactions.proto  # TransactionService (4 RPCs)
+│   ├── categories.proto    # CategoryService (4 RPCs)
+│   ├── reports.proto       # ReportService (2 RPCs)
+│   ├── common.proto        # Shared messages
+│   └── currency_rate.proto # Currency Rate Service client contract
 ├── database/
 │   └── migrations/        # SQL migration files
 ├── cmd/
@@ -270,7 +287,7 @@ expense-tracker/
 
 ### Phase 2: Backend API ✅
 - [x] Database package (Go + sqlc)
-- [x] REST API endpoints (23 endpoints)
+- [x] REST API endpoints (26 endpoints)
 - [x] JWT authentication
 - [x] Business logic layer
 - [x] Input validation
@@ -299,24 +316,23 @@ expense-tracker/
 ### Phase 5: Testing & QA 🧪
 - [x] Manual testing (in progress)
 - [ ] Bug fixes and improvements
-- [ ] Unit tests (backend)
-- [ ] Integration tests
+- [x] Unit tests (backend)
+- [x] Integration tests
 - [ ] E2E tests (frontend)
 - [ ] Performance optimization
 - [ ] Security audit
 
 ### Phase 6: gRPC API ✅
-- [x] Protocol Buffer definitions (accounts, transactions)
+- [x] Protocol Buffer definitions (5 services, 16 RPCs)
 - [x] Code generation with buf + protoc
 - [x] gRPC server with dual-protocol architecture (REST :8080 + gRPC :50051)
 - [x] JWT auth interceptor (reuses existing JWT service)
 - [x] Logging interceptor
-- [x] AccountService.ListAccounts
-- [x] TransactionService.ListTransactions (with filters and pagination)
+- [x] All 16 RPCs across Auth, Account, Transaction, Category and Report services (v0.4.0)
 - [x] Tested with grpcurl
 
 ### Phase 7: Deployment 📋
-- [ ] Docker containerization
+- [x] Docker containerization
 - [ ] CI/CD pipeline
 - [ ] Production deployment
 - [ ] Monitoring and logging

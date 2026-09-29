@@ -13,7 +13,7 @@ Migrations follow the pattern: `{version} {description}.sql` and `{version} {des
 
 ## Migration Files
 
-### Core Schema (001-007)
+### Schema (001–014; 008 intentionally absent — the demo seed lives in `database/seeds/`)
 
 | # | Migration | Description | Status |
 |---|-----------|-------------|--------|
@@ -24,12 +24,18 @@ Migrations follow the pattern: `{version} {description}.sql` and `{version} {des
 | 005 | `create transactions table` | Core transactions with auto-balance trigger | ✅ |
 | 006 | `create exchange rates table` | Multi-currency support with rates | ✅ |
 | 007 | `create audit log table` | Comprehensive audit trail with JSONB | ✅ |
+| 009 | `create default categories function` | Function creating default income/expense categories for a family | ✅ |
+| 010 | `fix account balance trigger` | Balance uses native `amount` instead of RSD-converted `amount_base` | ✅ |
+| 011 | `add user role` | `role` column on users (family owner vs member) | ✅ |
+| 012 | `exchange rates provenance` | `fetched_at` column; currency CHECKs widened to allow USD | ✅ |
+| 013 | `account name unique` | Case-insensitive unique active account names per family | ✅ |
+| 014 | `fix balance trigger account change` | Recalculate both old and new account when `account_id` changes | ✅ |
 
-### Seed Data (009)
+### Seed Data (`database/seeds/008_demo_seed_data.sql`)
 
 | # | Migration | Description | Status |
 |---|-----------|-------------|--------|
-| 009 | `demo seed data` | Demo data for portfolio/testing | ✅ |
+| 008 | `demo seed data` (`database/seeds/`, not a migration) | Demo data for portfolio/testing | ✅ |
 
 **Demo Credentials:**
 - Email: `demo@example.com`
@@ -39,18 +45,24 @@ Migrations follow the pattern: `{version} {description}.sql` and `{version} {des
 
 ### Apply migrations (in order):
 ```bash
-001 create families table.sql
-002 create users table.sql
-003 create accounts table.sql
-004 create categories table.sql
-005 create transactions table.sql
-006 create exchange rates table.sql
-007 create audit log table.sql
+001_create_families_table.up.sql
+002_create_users_table.up.sql
+003_create_accounts_table.up.sql
+004_create_categories_table.up.sql
+005_create_transactions_table.up.sql
+006_create_exchange_rates_table.up.sql
+007_create_audit_log_table.up.sql
+009_create_default_categories_function.up.sql
+010_fix_account_balance_trigger.up.sql
+011_add_user_role.up.sql
+012_exchange_rates_provenance.up.sql
+013_account_name_unique.up.sql
+014_fix_balance_trigger_account_change.up.sql
 ```
 
 ### Load seed data:
 ```bash
-009 demo seed data.sql
+database/seeds/008_demo_seed_data.sql
 ```
 
 ### Rollback (in reverse order):

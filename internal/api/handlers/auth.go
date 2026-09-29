@@ -45,7 +45,7 @@ func NewAuthHandler(userRepo *repository.UserRepository, jwtService *auth.JWTSer
 // @Failure      400 {object} dto.ErrorResponse "Invalid request body or validation error"
 // @Failure      401 {object} dto.ErrorResponse "Invalid credentials or user inactive"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /auth/login [post]
+// @Router       /api/v1/auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req dto.LoginRequest
 
@@ -97,7 +97,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 // @Failure      400 {object} dto.ErrorResponse "Invalid request body or validation error"
 // @Failure      409 {object} dto.ErrorResponse "Email already registered"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /auth/register [post]
+// @Router       /api/v1/auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req dto.RegisterRequest
 

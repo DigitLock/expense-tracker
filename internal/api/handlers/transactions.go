@@ -58,7 +58,7 @@ func NewTransactionHandler(
 // @Success      200 {object} dto.SuccessResponse{data=dto.TransactionListResponse} "Paginated list of transactions"
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /transactions [get]
+// @Router       /api/v1/transactions [get]
 func (h *TransactionHandler) List(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -117,7 +117,7 @@ func (h *TransactionHandler) List(w http.ResponseWriter, r *http.Request) {
 // @Failure      400 {object} dto.ErrorResponse "Invalid request body, validation error, or business rule violation"
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /transactions [post]
+// @Router       /api/v1/transactions [post]
 func (h *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -165,7 +165,7 @@ func (h *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      404 {object} dto.ErrorResponse "Transaction not found or does not belong to user's family"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /transactions/{id} [get]
+// @Router       /api/v1/transactions/{id} [get]
 func (h *TransactionHandler) Get(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -202,7 +202,7 @@ func (h *TransactionHandler) Get(w http.ResponseWriter, r *http.Request) {
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      404 {object} dto.ErrorResponse "Transaction not found"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /transactions/{id} [patch]
+// @Router       /api/v1/transactions/{id} [patch]
 func (h *TransactionHandler) Update(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {
@@ -261,7 +261,7 @@ func (h *TransactionHandler) Update(w http.ResponseWriter, r *http.Request) {
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      404 {object} dto.ErrorResponse "Transaction not found"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /transactions/{id} [delete]
+// @Router       /api/v1/transactions/{id} [delete]
 func (h *TransactionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	familyID, ok := middleware.GetFamilyID(r.Context())
 	if !ok {

@@ -29,7 +29,7 @@ func NewCurrencyHandler(exchangeRateRepo *repository.ExchangeRateRepository) *Cu
 // @Success      200 {object} dto.SuccessResponse{data=dto.ExchangeRatesResponse} "Current exchange rates"
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /currencies/rates [get]
+// @Router       /api/v1/currencies/rates [get]
 func (h *CurrencyHandler) GetRates(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
@@ -82,7 +82,7 @@ func (h *CurrencyHandler) GetRates(w http.ResponseWriter, r *http.Request) {
 // @Failure      400 {object} dto.ErrorResponse "Invalid parameters (missing amount, invalid currency codes)"
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
-// @Router       /currencies/convert [get]
+// @Router       /api/v1/currencies/convert [get]
 func (h *CurrencyHandler) Convert(w http.ResponseWriter, r *http.Request) {
 	amountStr := r.URL.Query().Get("amount")
 	fromCurrency := r.URL.Query().Get("from")
