@@ -28,11 +28,11 @@ stored/identity rates (`CURRENCY_SERVICE_ADDR` is left empty in `.env.staging`).
 
 | Layer            | Node            | Address                                   | External |
 | ---------------- | --------------- | ----------------------------------------- | -------- |
-| Postgres         | 192.168.13.80   | internal Docker network only (no publish) | No       |
-| Backend REST     | 192.168.13.80   | `:18080` (host) → `:8080` (container)      | Via edge |
-| Backend gRPC     | 192.168.13.80   | `:15051` (host) → `:50051` (container)     | LAN only |
-| Frontend (static)| 192.168.13.90   | nginx `:18090`, serves Vue `dist/`         | Via tunnel |
-| Edge (proxy)     | 192.168.13.90   | nginx, `/api` → `192.168.13.80:18080`      | Via tunnel |
+| Postgres         | <staging-host>  | internal Docker network only (no publish) | No       |
+| Backend REST     | <staging-host>  | `:18080` (host) → `:8080` (container)      | Via edge |
+| Backend gRPC     | <staging-host>  | `:15051` (host) → `:50051` (container)     | LAN only |
+| Frontend (static)| <edge-host>     | nginx `:18090`, serves Vue `dist/`         | Via tunnel |
+| Edge (proxy)     | <edge-host>     | nginx, `/api` → `<staging-host>:18080`     | Via tunnel |
 | Public web       | Cloudflare      | `https://staging.digitlock.systems`        | Yes      |
 
 * **Postgres** is never published to the host — only services on the compose
@@ -72,13 +72,13 @@ stored/identity rates (`CURRENCY_SERVICE_ADDR` is left empty in `.env.staging`).
 > (`DB_PASSWORD`, `JWT_SECRET`, etc.). Never copy secret values into this doc or
 > into git.
 
-Backend node — `192.168.13.80`:
+Backend node — `<staging-host>`:
 
 1. **Sync the tree** from the Mac to the staging node:
 
    ```sh
    rsync -av --delete --exclude '.git' --exclude 'bin' --exclude 'frontend/node_modules' \
-     ./ digitlock@192.168.13.80:~/expense-tracker-staging/
+     ./ "<user>@<staging-host>:~/expense-tracker-staging/"
    ```
 
 2. **Build the backend image:**
@@ -119,18 +119,18 @@ Backend node — `192.168.13.80`:
      --env-file .env.staging -p expense-tracker-staging up -d backend
    ```
 
-Edge / frontend node — `192.168.13.90`:
+Edge / frontend node — `<edge-host>`:
 
 6. **Build & publish the frontend:**
 
    ```sh
    cd frontend && npm ci && npm run build          # → dist/, relative /api/v1
-   rsync -av dist/  user@192.168.13.90:/var/www/staging/
+   rsync -av dist/  "user@<edge-host>:/var/www/staging/"
    ```
 
    nginx site `expense-staging` listens on `:18090`, serves
    `/var/www/staging` (SPA fallback to `index.html`), and reverse-proxies
-   `location /api/ → http://192.168.13.80:18080`.
+   `location /api/ → http://<staging-host>:18080`.
 
 7. **Expose publicly via Cloudflare Tunnel** (token-based, runs as a systemd
    service):
@@ -157,8 +157,8 @@ Edge / frontend node — `192.168.13.90`:
 
 | Check        | Command                                                      |
 | ------------ | ----------------------------------------------------------- |
-| REST health  | `curl http://192.168.13.80:18080/health`                    |
-| gRPC (LAN)   | `grpcurl -plaintext 192.168.13.80:15051 list`               |
+| REST health  | `curl "http://<staging-host>:18080/health"`                 |
+| gRPC (LAN)   | `grpcurl -plaintext "<staging-host>:15051" list`            |
 | Public web   | `curl -I https://staging.digitlock.systems/`                |
 | API via edge | `curl -I https://staging.digitlock.systems/api/v1/health`   |
 

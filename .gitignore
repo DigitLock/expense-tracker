@@ -16,8 +16,8 @@
 go.work
 go.work.sum
 /vendor/
-/backend/tmp/
-/backend/dist/
+/server
+/expense-tracker
 
 # Frontend
 /frontend/node_modules/

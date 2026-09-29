@@ -195,8 +195,8 @@ grpcurl -plaintext \
 |---------|-----|
 | Web Frontend | [`https://demo-expensetracker.digitlock.systems`](https://demo-expensetracker.digitlock.systems) |
 | REST API | [`https://api-demo-expensetracker.digitlock.systems`](https://api-demo-expensetracker.digitlock.systems) |
-| REST API (direct) | `46.224.29.194:8081` |
-| gRPC API | `46.224.29.194:50051` (plaintext) |
+| REST API (direct) | `<demo-host>:8081` |
+| gRPC API | `<demo-host>:50051` (plaintext) |
 
 **Demo credentials**: `demo@example.com` / `Demo123!`
 

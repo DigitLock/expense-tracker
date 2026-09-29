@@ -206,9 +206,9 @@ graph TB
 |------|----------|---------|--------|
 | 80/443 | HTTP/HTTPS | nginx-proxy (existing on Hetzner) | Handles TLS for other services on the VPS |
 | 8080 | HTTP/REST | Backend (inside Docker container) | Internal only — mapped to :8081 externally (port 8080 occupied by Camunda) |
-| 8081 | HTTP/REST | Backend (Docker → host) | Cloudflare Tunnel → `api-demo-expensetracker.digitlock.systems` / Direct IP `46.224.29.194:8081` |
+| 8081 | HTTP/REST | Backend (Docker → host) | Cloudflare Tunnel → `api-demo-expensetracker.digitlock.systems` / Direct IP `<demo-host>:8081` |
 | 8090 | HTTP | Frontend (Docker nginx → host) | Cloudflare Tunnel → `demo-expensetracker.digitlock.systems` (port 80 occupied by nginx-proxy) |
-| 50051 | HTTP/2 gRPC | gRPC API (Docker → host) | Direct IP `46.224.29.194:50051` (plaintext, Cloudflare does not proxy gRPC on free plan) |
+| 50051 | HTTP/2 gRPC | gRPC API (Docker → host) | Direct IP `<demo-host>:50051` (plaintext, Cloudflare does not proxy gRPC on free plan) |
 | 5432 | TCP | PostgreSQL (Docker) | Internal only (Docker network `backend`) |
 
 
@@ -414,7 +414,7 @@ grpcurl -plaintext \
   -import-path . -proto proto/accounts.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{}' \
-  46.224.29.194:50051 \
+  <demo-host>:50051 \
   expense_tracker.v1.AccountService/ListAccounts
 ```
 
@@ -469,7 +469,7 @@ grpcurl -plaintext \
   -import-path . -proto proto/accounts.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{"name": "Cash EUR", "type": "cash", "currency": "EUR", "initial_balance": 500.00, "description": "Euro cash wallet"}' \
-  46.224.29.194:50051 \
+  <demo-host>:50051 \
   expense_tracker.v1.AccountService/CreateAccount
 ```
 
@@ -520,7 +520,7 @@ grpcurl -plaintext \
   -import-path . -proto proto/accounts.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{"id": "ACCOUNT_UUID", "name": "Cash RSD Updated"}' \
-  46.224.29.194:50051 \
+  <demo-host>:50051 \
   expense_tracker.v1.AccountService/UpdateAccount
 ```
 
@@ -569,7 +569,7 @@ grpcurl -plaintext \
   -import-path . -proto proto/accounts.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{"id": "ACCOUNT_UUID"}' \
-  46.224.29.194:50051 \
+  <demo-host>:50051 \
   expense_tracker.v1.AccountService/DeleteAccount
 ```
 
@@ -643,7 +643,7 @@ grpcurl -plaintext \
   -import-path . -proto proto/transactions.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{"type": "expense", "page": 1, "per_page": 10}' \
-  46.224.29.194:50051 \
+  <demo-host>:50051 \
   expense_tracker.v1.TransactionService/ListTransactions
 ```
 
@@ -708,7 +708,7 @@ grpcurl -plaintext \
   -import-path . -proto proto/transactions.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{"type": "expense", "amount": 2500.00, "currency": "RSD", "category_id": "CAT_UUID", "account_id": "ACC_UUID", "description": "Weekly groceries", "date": "2026-03-19"}' \
-  46.224.29.194:50051 \
+  <demo-host>:50051 \
   expense_tracker.v1.TransactionService/CreateTransaction
 ```
 
@@ -773,7 +773,7 @@ grpcurl -plaintext \
   -import-path . -proto proto/transactions.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{"id": "TXN_UUID", "amount": 2600.00, "description": "Updated groceries"}' \
-  46.224.29.194:50051 \
+  <demo-host>:50051 \
   expense_tracker.v1.TransactionService/UpdateTransaction
 ```
 
@@ -819,7 +819,7 @@ grpcurl -plaintext \
   -import-path . -proto proto/transactions.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{"id": "TXN_UUID"}' \
-  46.224.29.194:50051 \
+  <demo-host>:50051 \
   expense_tracker.v1.TransactionService/DeleteTransaction
 ```
 
@@ -901,7 +901,7 @@ grpcurl -plaintext \
   -import-path . -proto proto/categories.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{"type": "expense"}' \
-  46.224.29.194:50051 \
+  <demo-host>:50051 \
   expense_tracker.v1.CategoryService/ListCategories
 ```
 
@@ -955,7 +955,7 @@ grpcurl -plaintext \
   -import-path . -proto proto/categories.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{"name": "Transportation", "type": "expense"}' \
-  46.224.29.194:50051 \
+  <demo-host>:50051 \
   expense_tracker.v1.CategoryService/CreateCategory
 ```
 
@@ -1010,7 +1010,7 @@ grpcurl -plaintext \
   -import-path . -proto proto/categories.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{"id": "CAT_UUID", "name": "Transportation & Travel"}' \
-  46.224.29.194:50051 \
+  <demo-host>:50051 \
   expense_tracker.v1.CategoryService/UpdateCategory
 ```
 
@@ -1057,7 +1057,7 @@ grpcurl -plaintext \
   -import-path . -proto proto/categories.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{"id": "CAT_UUID"}' \
-  46.224.29.194:50051 \
+  <demo-host>:50051 \
   expense_tracker.v1.CategoryService/DeleteCategory
 ```
 
@@ -1155,7 +1155,7 @@ grpcurl -plaintext \
   -import-path . -proto proto/reports.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{"start_date": "2026-03-01", "end_date": "2026-03-31", "type": "expense"}' \
-  46.224.29.194:50051 \
+  <demo-host>:50051 \
   expense_tracker.v1.ReportService/GetSpendingByCategory
 ```
 
@@ -1218,7 +1218,7 @@ grpcurl -plaintext \
   -import-path . -proto proto/reports.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{"month": "2026-03"}' \
-  46.224.29.194:50051 \
+  <demo-host>:50051 \
   expense_tracker.v1.ReportService/GetMonthlySummary
 ```
 
@@ -1365,8 +1365,8 @@ protoc --dart_out=grpc:lib/generated \
 |----------|---------------|----------|
 | Web Frontend | `https://demo-expensetracker.digitlock.systems` | HTTPS (Cloudflare) |
 | REST API | `https://api-demo-expensetracker.digitlock.systems` | HTTPS (Cloudflare) |
-| REST API (direct) | `46.224.29.194:8081` | HTTP |
-| gRPC API | `46.224.29.194:50051` | HTTP/2 (plaintext) |
+| REST API (direct) | `<demo-host>:8081` | HTTP |
+| gRPC API | `<demo-host>:50051` | HTTP/2 (plaintext) |
 
 ## 8.3 Demo Credentials
 ```
@@ -1448,7 +1448,7 @@ systemctl status cloudflared                   # Tunnel status
 
 ```bash
 # Get JWT token
-TOKEN=$(curl -s -X POST http://46.224.29.194:8081/api/v1/auth/login \
+TOKEN=$(curl -s -X POST "http://<demo-host>:8081/api/v1/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"email":"demo@example.com","password":"Demo123!"}' \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['token'])")
@@ -1458,14 +1458,14 @@ grpcurl -plaintext \
   -import-path . -proto proto/accounts.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{}' \
-  46.224.29.194:50051 expense_tracker.v1.AccountService/ListAccounts
+  <demo-host>:50051 expense_tracker.v1.AccountService/ListAccounts
 
 # ListTransactions with filters
 grpcurl -plaintext \
   -import-path . -proto proto/transactions.proto \
   -H "authorization: Bearer $TOKEN" \
   -d '{"type":"expense","page":1,"per_page":10}' \
-  46.224.29.194:50051 expense_tracker.v1.TransactionService/ListTransactions
+  <demo-host>:50051 expense_tracker.v1.TransactionService/ListTransactions
 ```
 
 ---

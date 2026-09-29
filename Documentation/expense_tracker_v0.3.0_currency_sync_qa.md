@@ -11,7 +11,7 @@ Run date: 2026-06-16. All evidence below was captured fresh in this run (not reu
 | Item | Value |
 |------|-------|
 | Go | go1.25.3 darwin/arm64 |
-| Dev DB (`expense_tracker_dev`, 192.168.13.30) | `schema_migrations` version = **12**, dirty = false |
+| Dev DB (`expense_tracker_dev`, <dev-db-host>) | `schema_migrations` version = **12**, dirty = false |
 | Currency Rate Service (CRS) | gRPC `localhost:50052`, health `:8090` |
 | ET backend | HTTP `:8080`, gRPC `:50051` |
 | Auth | JWT via `POST /api/v1/auth/login` (demo@example.com / Demo123!) → 200, token acquired |

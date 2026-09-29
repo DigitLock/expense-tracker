@@ -199,7 +199,7 @@ Configure gRPC and REST server endpoints. Test connection before saving.
 **Default Values**
 | Field | Default | Source |
 |-------|---------|--------|
-| Server Address | `46.224.29.194` | Hardcoded initial value |
+| Server Address | `<demo-host>` | Hardcoded initial value |
 | gRPC Port | `50051` | Hardcoded initial value |
 | REST Port | `8081` | Hardcoded initial value |
 
@@ -630,7 +630,7 @@ Pre-configured defaults connect to Hetzner demo server:
 
 | Parameter | Default Value |
 |-----------|--------------|
-| Server address | `46.224.29.194` |
+| Server address | `<demo-host>` |
 | gRPC port | `50051` |
 | REST port | `8081` |
 | Demo email | `demo@example.com` |

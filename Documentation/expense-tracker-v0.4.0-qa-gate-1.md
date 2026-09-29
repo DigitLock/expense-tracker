@@ -95,7 +95,7 @@ The two protocols give **identical domain results for the same operation**. The 
 
 ## 6. Database migrations (pending application)
 
-Both migration files are authored and validated (up/down round-trip on the test DB); **not yet applied to the dev DB** (`192.168.13.30`, currently `version = 12`). To be applied to dev now and to the VPS at v0.5.0 deploy.
+Both migration files are authored and validated (up/down round-trip on the test DB); **not yet applied to the dev DB** (`<dev-db-host>`, currently `version = 12`). To be applied to dev now and to the VPS at v0.5.0 deploy.
 
 | Migration | Purpose | Apply order |
 |-----------|---------|-------------|
