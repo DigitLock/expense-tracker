@@ -63,12 +63,6 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Validate required config
-	if cfg.JWT.Secret == "" {
-		log.Println("WARNING: JWT_SECRET not set, using insecure default for development")
-		cfg.JWT.Secret = "dev-secret-change-in-production"
-	}
-
 	db, err := database.New(ctx, cfg.Database)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)

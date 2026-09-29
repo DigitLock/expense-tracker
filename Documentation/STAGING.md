@@ -192,6 +192,9 @@ separate upstream the backend calls as a client.
 * **`JWT_SECRET` is unique to staging.** It is generated per environment and not
   shared with dev or live, so tokens are not portable across environments. The
   same applies to `DB_PASSWORD`.
+* **`JWT_SECRET` is required.** The backend exits at startup with
+  `JWT_SECRET is not set` if it is empty. Only `APP_ENV=dev` enables the
+  insecure development fallback — do not set `APP_ENV` on staging.
 * **CRS absence is a supported mode**, not an outage — see Overview. When a real
   CRS is added later, set `CURRENCY_SERVICE_ADDR` in `.env.staging` and restart
   the backend.

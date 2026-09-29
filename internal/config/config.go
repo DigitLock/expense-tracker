@@ -1,7 +1,9 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -47,6 +49,10 @@ type CurrencyConfig struct {
 	SyncTimeout  time.Duration // per-call timeout for a rate fetch
 }
 
+// devJWTSecret is the insecure signing secret used only when APP_ENV=dev and
+// JWT_SECRET is unset.
+const devJWTSecret = "dev-secret-change-in-production"
+
 func (d DatabaseConfig) DSN() string {
 	return fmt.Sprintf(
 		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
@@ -76,6 +82,11 @@ func Load() (*Config, error) {
 	jwtExpiration, err := strconv.Atoi(getEnv("JWT_EXPIRATION_HOURS", "24"))
 	if err != nil {
 		return nil, fmt.Errorf("invalid JWT_EXPIRATION_HOURS: %w", err)
+	}
+
+	jwtSecret, err := resolveJWTSecret(getEnv("JWT_SECRET", ""), getEnv("APP_ENV", ""))
+	if err != nil {
+		return nil, err
 	}
 
 	currencySyncInterval, err := getEnvDuration("CURRENCY_SYNC_INTERVAL", "6h")
@@ -113,7 +124,7 @@ func Load() (*Config, error) {
 			ShutdownTimeout: 30,
 		},
 		JWT: JWTConfig{
-			Secret:          getEnv("JWT_SECRET", ""),
+			Secret:          jwtSecret,
 			ExpirationHours: jwtExpiration,
 		},
 		Currency: CurrencyConfig{
@@ -122,6 +133,19 @@ func Load() (*Config, error) {
 			SyncTimeout:  currencySyncTimeout,
 		},
 	}, nil
+}
+
+// resolveJWTSecret returns the JWT signing secret. An empty secret is an error
+// unless appEnv is "dev", in which case an insecure fallback is used.
+func resolveJWTSecret(secret, appEnv string) (string, error) {
+	if secret != "" {
+		return secret, nil
+	}
+	if appEnv == "dev" {
+		log.Println("WARNING: JWT_SECRET not set, using insecure default for development")
+		return devJWTSecret, nil
+	}
+	return "", errors.New("JWT_SECRET is not set")
 }
 
 func getEnv(key, defaultValue string) string {
