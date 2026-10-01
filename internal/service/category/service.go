@@ -27,6 +27,7 @@ type Repo interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	HasChildren(ctx context.Context, parentID uuid.UUID) (bool, error)
 	HasTransactions(ctx context.Context, id uuid.UUID) (bool, error)
+	Restore(ctx context.Context, id uuid.UUID) (*sqlc.Category, error)
 }
 
 type Service struct {
@@ -194,6 +195,21 @@ func (s *Service) Delete(ctx context.Context, familyID, id uuid.UUID) error {
 	}
 
 	return s.repo.Delete(ctx, id)
+}
+
+// Restore reactivates a soft-deleted category. Ownership is checked by the
+// caller. Reactivating a name already used by an active category maps to the
+// same duplicate-name error as Create/Update; every other repository error
+// (including "category not found or already active") is returned unchanged.
+func (s *Service) Restore(ctx context.Context, id uuid.UUID) (domain.Category, error) {
+	row, err := s.repo.Restore(ctx, id)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return domain.Category{}, domain.Errorf(domain.ErrAlreadyExists, "category with this name already exists")
+		}
+		return domain.Category{}, err
+	}
+	return toDomain(*row), nil
 }
 
 // --- helpers ---

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -253,6 +254,7 @@ func (h *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Failure      400 {object} dto.ErrorResponse "Invalid category ID format"
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized"
 // @Failure      404 {object} dto.ErrorResponse "Category not found or already active"
+// @Failure      409 {object} dto.ErrorResponse "An active category with the same name already exists (ALREADY_EXISTS)"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
 // @Router       /api/v1/categories/{id}/restore [post]
 func (h *CategoryHandler) Restore(w http.ResponseWriter, r *http.Request) {
@@ -274,9 +276,11 @@ func (h *CategoryHandler) Restore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cat, err := h.categoryRepo.Restore(r.Context(), categoryID)
+	cat, err := h.svc.Restore(r.Context(), categoryID)
 	if err != nil {
-		if err.Error() == "category not found or already active" {
+		if errors.Is(err, domain.ErrAlreadyExists) {
+			writeDomainError(w, err)
+		} else if err.Error() == "category not found or already active" {
 			writeError(w, http.StatusNotFound, "NOT_FOUND", "Category not found or already active")
 		} else {
 			writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", err.Error())
@@ -284,7 +288,7 @@ func (h *CategoryHandler) Restore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeSuccess(w, http.StatusOK, mapCategory(*cat))
+	writeSuccess(w, http.StatusOK, categoryToDTO(cat))
 }
 
 // Helper functions
@@ -310,7 +314,7 @@ func categoryToDTO(c domain.Category) dto.CategoryResponse {
 	}
 }
 
-// mapCategory maps a repo sqlc.Category to the REST DTO (used by Get/Restore).
+// mapCategory maps a repo sqlc.Category to the REST DTO (used by Get).
 func mapCategory(c sqlc.Category) dto.CategoryResponse {
 	var parentID *uuid.UUID
 	if c.ParentID.Valid {
