@@ -642,6 +642,7 @@ Authorization: Bearer <token>
 
 ##### Request parameters - DELETE - Delete Account
 > :information_source: _Performs soft delete by setting is_active=false_
+> :information_source: _Blocked (409) while the account has active transactions; deleted transactions do not block it_
 
 | Path parameter | Type | Required | Description | Example |
 |------------|------|-----------|--------------|----------|
@@ -911,6 +912,7 @@ Authorization: Bearer <token>
 
 ##### Request parameters - DELETE - Delete category
 > :information_source: _Performs soft delete by setting is_active=false_
+> :information_source: _Blocked (409) while the category has active transactions or active subcategories; deleted transactions do not block it_
 
 | Path parameter | Type | Required | Description | Example |
 |------------|------|-----------|--------------|----------|
@@ -2180,7 +2182,7 @@ User navigates to Accounts section from main menu.
 
 ##### Exception Paths
 - **Duplicate Account Name**: Show "Account name already exists"
-- **Cannot Delete Account**: Show "Cannot delete account with transactions"
+- **Cannot Delete Account**: Blocked while the account has active transactions; deleted transactions do not block deletion
 - **Balance Calculation Error**: Recalculate from transaction history
 
 ##### Acceptance Criteria

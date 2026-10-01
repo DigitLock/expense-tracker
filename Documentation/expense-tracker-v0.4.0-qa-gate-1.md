@@ -58,6 +58,8 @@ Status legend: ✅ verified via `grpcurl` (live) and/or service test, error code
 | ReportService | GetSpendingByCategory | ✅ | default = current month/expense/RSD; custom period; invalid date → `INVALID_ARGUMENT(3)` |
 | ReportService | GetMonthlySummary | ✅ | income/expenses/net/counts; empty month → zeros |
 
+> **Note (v0.4.2, BE-001):** the results above are as verified for v0.4.0. Since v0.4.2, only *active* transactions block DeleteAccount and DeleteCategory; soft-deleted transactions no longer do.
+
 ---
 
 ## 4. Acceptance criteria (spec §6 / §7)

@@ -11,7 +11,7 @@ Personal and family finance management system with multi-currency support and au
 - ✅ **OpenAPI Documentation** - Complete (Swagger UI available)
 - ✅ **Frontend MVP** - Complete (Full CRUD for Accounts, Categories, Transactions)
 - ✅ **gRPC API** - Complete (Stage 6: Mobile API with dual-protocol architecture)
-- 🚀 **Current release:** v0.4.1 on staging; v0.5.0 (Flutter client) in development
+- 🚀 **Current release:** v0.4.2 on staging (fixes BE-001: deleted transactions no longer block deleting a category or account; BE-002: category restore name clash returns 409 instead of 500); v0.5.0 (Flutter client) in development
 
 ## ✨ Features
 

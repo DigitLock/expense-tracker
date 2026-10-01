@@ -199,7 +199,7 @@ func (h *AccountHandler) Update(w http.ResponseWriter, r *http.Request) {
 // @Failure      400 {object} dto.ErrorResponse "Invalid account ID format"
 // @Failure      401 {object} dto.ErrorResponse "Unauthorized - invalid or missing JWT token"
 // @Failure      404 {object} dto.ErrorResponse "Account not found"
-// @Failure      409 {object} dto.ErrorResponse "Account inactive or has transactions"
+// @Failure      409 {object} dto.ErrorResponse "Account inactive or has active transactions"
 // @Failure      500 {object} dto.ErrorResponse "Internal server error"
 // @Router       /api/v1/accounts/{id} [delete]
 func (h *AccountHandler) Delete(w http.ResponseWriter, r *http.Request) {

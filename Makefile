@@ -44,4 +44,4 @@ test-setup:
 # -p 1 serializes package execution: the integration tests share one test
 # database and truncate it, so they must not run concurrently.
 test: test-setup
-	TEST_DATABASE_URL="$(TEST_DB_URL)" go test ./... -v -p 1
+	@TEST_DATABASE_URL="$(TEST_DB_URL)" go test ./... -v -p 1

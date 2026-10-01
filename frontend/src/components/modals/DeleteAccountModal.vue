@@ -72,7 +72,7 @@ const handleOpenChange = (open: boolean) => {
         <div class="bg-red-50 border border-red-200 rounded-lg p-4">
           <p class="text-sm text-red-800">
             You are about to delete <strong>{{ accountName }}</strong>.
-            All related transactions will be affected.
+            An account with active transactions can't be deleted — delete or move those transactions first.
           </p>
         </div>
 

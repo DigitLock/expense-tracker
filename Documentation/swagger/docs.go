@@ -274,7 +274,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Account inactive or has transactions",
+                        "description": "Account inactive or has active transactions",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -982,6 +982,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Category not found or already active",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "An active category with the same name already exists (ALREADY_EXISTS)",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
