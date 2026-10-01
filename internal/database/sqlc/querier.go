@@ -12,11 +12,13 @@ import (
 )
 
 type Querier interface {
-	// Counts ALL transactions (active and inactive) for an account.
-	// Used to prevent deletion of accounts that have transaction history.
+	// Counts ACTIVE transactions for an account. Used to block account deletion:
+	// only active transactions block it; soft-deleted transactions are history
+	// and do not.
 	CountTransactionsByAccount(ctx context.Context, accountID uuid.UUID) (int64, error)
-	// Counts ALL transactions (active and inactive) for a category.
-	// Used to prevent deletion of categories that have transaction history.
+	// Counts ACTIVE transactions for a category. Used to block category deletion:
+	// only active transactions block it; soft-deleted transactions are history
+	// and do not.
 	CountTransactionsByCategory(ctx context.Context, categoryID uuid.UUID) (int64, error)
 	CountTransactionsByFamily(ctx context.Context, familyID uuid.UUID) (int64, error)
 	CountTransactionsFiltered(ctx context.Context, arg CountTransactionsFilteredParams) (int64, error)

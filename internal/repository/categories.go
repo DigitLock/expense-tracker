@@ -141,8 +141,9 @@ func (r *CategoryRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.queries.DeleteCategory(ctx, id)
 }
 
-// HasTransactions returns true if the category has ANY transactions
-// (active or inactive). Used to block deletion of categories with history.
+// HasTransactions returns true if the category has ACTIVE transactions.
+// Used to block category deletion; soft-deleted transactions are history and
+// do not block it.
 func (r *CategoryRepository) HasTransactions(ctx context.Context, id uuid.UUID) (bool, error) {
 	count, err := r.queries.CountTransactionsByCategory(ctx, id)
 	if err != nil {

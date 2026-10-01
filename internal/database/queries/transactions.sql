@@ -95,18 +95,20 @@ FROM transactions
 WHERE family_id = $1 AND is_active = true;
 
 -- name: CountTransactionsByAccount :one
--- Counts ALL transactions (active and inactive) for an account.
--- Used to prevent deletion of accounts that have transaction history.
+-- Counts ACTIVE transactions for an account. Used to block account deletion:
+-- only active transactions block it; soft-deleted transactions are history
+-- and do not.
 SELECT COUNT(*) as total
 FROM transactions
-WHERE account_id = $1;
+WHERE account_id = $1 AND is_active = true;
 
 -- name: CountTransactionsByCategory :one
--- Counts ALL transactions (active and inactive) for a category.
--- Used to prevent deletion of categories that have transaction history.
+-- Counts ACTIVE transactions for a category. Used to block category deletion:
+-- only active transactions block it; soft-deleted transactions are history
+-- and do not.
 SELECT COUNT(*) as total
 FROM transactions
-WHERE category_id = $1;
+WHERE category_id = $1 AND is_active = true;
 
 -- name: GetTransactionIncludingInactive :one
 SELECT * FROM transactions

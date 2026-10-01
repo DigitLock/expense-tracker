@@ -16,11 +16,12 @@ import (
 const countTransactionsByAccount = `-- name: CountTransactionsByAccount :one
 SELECT COUNT(*) as total
 FROM transactions
-WHERE account_id = $1
+WHERE account_id = $1 AND is_active = true
 `
 
-// Counts ALL transactions (active and inactive) for an account.
-// Used to prevent deletion of accounts that have transaction history.
+// Counts ACTIVE transactions for an account. Used to block account deletion:
+// only active transactions block it; soft-deleted transactions are history
+// and do not.
 func (q *Queries) CountTransactionsByAccount(ctx context.Context, accountID uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countTransactionsByAccount, accountID)
 	var total int64
@@ -31,11 +32,12 @@ func (q *Queries) CountTransactionsByAccount(ctx context.Context, accountID uuid
 const countTransactionsByCategory = `-- name: CountTransactionsByCategory :one
 SELECT COUNT(*) as total
 FROM transactions
-WHERE category_id = $1
+WHERE category_id = $1 AND is_active = true
 `
 
-// Counts ALL transactions (active and inactive) for a category.
-// Used to prevent deletion of categories that have transaction history.
+// Counts ACTIVE transactions for a category. Used to block category deletion:
+// only active transactions block it; soft-deleted transactions are history
+// and do not.
 func (q *Queries) CountTransactionsByCategory(ctx context.Context, categoryID uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countTransactionsByCategory, categoryID)
 	var total int64

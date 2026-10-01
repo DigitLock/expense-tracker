@@ -119,8 +119,9 @@ func (r *AccountRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.queries.DeleteAccount(ctx, id)
 }
 
-// HasTransactions returns true if the account has ANY transactions
-// (active or inactive). Used to block deletion of accounts with history.
+// HasTransactions returns true if the account has ACTIVE transactions.
+// Used to block account deletion; soft-deleted transactions are history and
+// do not block it.
 func (r *AccountRepository) HasTransactions(ctx context.Context, id uuid.UUID) (bool, error) {
 	count, err := r.queries.CountTransactionsByAccount(ctx, id)
 	if err != nil {
